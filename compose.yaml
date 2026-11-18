@@ -1,0 +1,51 @@
+name: crossslot
+
+x-redis: &redis
+  image: redis:8.10.3@sha256:1f88291b4c57bdf249f02eb085a8669889b2d2954e91d4de5118a5da6b78dd53
+
+x-node: &node
+  <<: *redis
+  command:
+    - sh
+    - -c
+    - >-
+      exec redis-server --port $$PORT --cluster-enabled yes --cluster-node-timeout 5000
+      --cluster-announce-hostname 127.0.0.1 --cluster-preferred-endpoint-type hostname
+      --save '' --appendonly no
+
+services:
+  standalone:
+    <<: *redis
+    command: redis-server --port 7100 --save "" --appendonly no
+    ports:
+      - '127.0.0.1:7100:7100'
+  n1:
+    <<: *node
+    environment: { PORT: '7001' }
+    ports:
+      - '127.0.0.1:7001:7001'
+  n2:
+    <<: *node
+    environment: { PORT: '7002' }
+    ports:
+      - '127.0.0.1:7002:7002'
+  n3:
+    <<: *node
+    environment: { PORT: '7003' }
+    ports:
+      - '127.0.0.1:7003:7003'
+  n4:
+    <<: *node
+    environment: { PORT: '7004' }
+    ports:
+      - '127.0.0.1:7004:7004'
+  n5:
+    <<: *node
+    environment: { PORT: '7005' }
+    ports:
+      - '127.0.0.1:7005:7005'
+  n6:
+    <<: *node
+    environment: { PORT: '7006' }
+    ports:
+      - '127.0.0.1:7006:7006'

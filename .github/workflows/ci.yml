@@ -1,0 +1,44 @@
+name: ci
+on: [push, pull_request]
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: node dist/cli.js corpus fetch --out data/sim --manifest data/MANIFEST.sha256
+      - run: npm run acceptance
+
+  cluster:
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - run: node dist/cli.js corpus fetch --out data/sim --manifest data/MANIFEST.sha256
+      - run: cd data/sim && shasum -a 256 -c ../MANIFEST.sha256
+      - run: npm run cluster:up
+      - run: node dist/cli.js diff --corpus data/sim --target cluster --seeds 20 --ops 500 --out before.json
+      - run: node dist/cli.js patch apply --corpus data/sim --patch patch/crossslot.patch --out data/patched
+      - run: node dist/cli.js diff --corpus data/patched --reference-corpus data/sim --target cluster --seeds 20 --ops 500 --out after.json
+      - run: node dist/cli.js summarize --before before.json --after after.json
+      - run: npm run repro
+      - run: CROSSSLOT_CLUSTER_TESTS=1 npm run acceptance
+      - run: npm run cluster:down
+        if: always()

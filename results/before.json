@@ -1,0 +1,567 @@
+{
+  "schema": 1,
+  "redis": {
+    "reference": "8.10.3",
+    "target": "8.10.3",
+    "mode": "cluster"
+  },
+  "corpus": "data/sim",
+  "referenceCorpus": "data/sim",
+  "seeds": 20,
+  "opsPerSeed": 500,
+  "drivers": [
+    {
+      "name": "hosted-queue",
+      "siteIds": [
+        "apps/sim/lib/core/rate-limiter/hosted-key/queue.ts:98",
+        "apps/sim/lib/core/rate-limiter/hosted-key/queue.ts:138",
+        "apps/sim/lib/core/rate-limiter/hosted-key/queue.ts:166",
+        "apps/sim/lib/core/rate-limiter/hosted-key/queue.ts:188"
+      ],
+      "ops": 10000,
+      "failingSeeds": 20,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/sim/lib/core/rate-limiter/hosted-key/queue.ts:98",
+          "executed": 2301,
+          "failed": 2301
+        },
+        {
+          "id": "apps/sim/lib/core/rate-limiter/hosted-key/queue.ts:138",
+          "executed": 4633,
+          "failed": 3168
+        },
+        {
+          "id": "apps/sim/lib/core/rate-limiter/hosted-key/queue.ts:166",
+          "executed": 642,
+          "failed": 642
+        },
+        {
+          "id": "apps/sim/lib/core/rate-limiter/hosted-key/queue.ts:188",
+          "executed": 2172,
+          "failed": 2172
+        }
+      ],
+      "errors": {
+        "CROSSSLOT": 1721,
+        "NONLOCAL_KEY": 3168,
+        "CLIENT_PIPELINE_SLOTS": 3394
+      },
+      "distinctEntities": 3619,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "failing",
+      "controls": false,
+      "first": {
+        "seed": 1,
+        "op": 0,
+        "message": "All keys in the pipeline should belong to the same slots allocation group"
+      }
+    },
+    {
+      "name": "realtime-rooms",
+      "siteIds": [
+        "apps/realtime/src/rooms/redis-manager.ts:243",
+        "apps/realtime/src/rooms/redis-manager.ts:281",
+        "apps/realtime/src/rooms/redis-manager.ts:385",
+        "apps/realtime/src/rooms/redis-manager.ts:404"
+      ],
+      "ops": 10000,
+      "failingSeeds": 20,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/realtime/src/rooms/redis-manager.ts:243",
+          "executed": 2752,
+          "failed": 2752
+        },
+        {
+          "id": "apps/realtime/src/rooms/redis-manager.ts:281",
+          "executed": 2726,
+          "failed": 2726
+        },
+        {
+          "id": "apps/realtime/src/rooms/redis-manager.ts:385",
+          "executed": 429,
+          "failed": 429
+        },
+        {
+          "id": "apps/realtime/src/rooms/redis-manager.ts:404",
+          "executed": 4093,
+          "failed": 4093
+        }
+      ],
+      "errors": {
+        "CROSSSLOT": 7341,
+        "MOVED": 2659
+      },
+      "distinctEntities": 4137,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "failing",
+      "controls": false,
+      "first": {
+        "seed": 1,
+        "op": 0,
+        "message": "MOVED 12587 127.0.0.1:7003"
+      }
+    },
+    {
+      "name": "token-bucket",
+      "siteIds": [
+        "apps/sim/lib/core/rate-limiter/storage/redis-token-bucket.ts:144",
+        "apps/sim/lib/core/rate-limiter/storage/redis-token-bucket.ts:172",
+        "apps/sim/lib/core/rate-limiter/storage/redis-token-bucket.ts:195",
+        "apps/sim/lib/core/rate-limiter/storage/redis-token-bucket.ts:201"
+      ],
+      "ops": 10000,
+      "failingSeeds": 20,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/sim/lib/core/rate-limiter/storage/redis-token-bucket.ts:144",
+          "executed": 2500,
+          "failed": 0
+        },
+        {
+          "id": "apps/sim/lib/core/rate-limiter/storage/redis-token-bucket.ts:172",
+          "executed": 5000,
+          "failed": 5000
+        },
+        {
+          "id": "apps/sim/lib/core/rate-limiter/storage/redis-token-bucket.ts:195",
+          "executed": 902,
+          "failed": 0
+        },
+        {
+          "id": "apps/sim/lib/core/rate-limiter/storage/redis-token-bucket.ts:201",
+          "executed": 1368,
+          "failed": 0
+        }
+      ],
+      "errors": {
+        "CROSSSLOT": 5000
+      },
+      "distinctEntities": 2500,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "failing",
+      "controls": false,
+      "first": {
+        "seed": 1,
+        "op": 1,
+        "message": "CROSSSLOT Keys in request don't hash to the same slot"
+      }
+    },
+    {
+      "name": "approval-store",
+      "siteIds": [
+        "apps/sim/lib/cli-auth/approval-store.ts:160"
+      ],
+      "ops": 10000,
+      "failingSeeds": 20,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/sim/lib/cli-auth/approval-store.ts:160",
+          "executed": 2917,
+          "failed": 2917
+        }
+      ],
+      "errors": {
+        "CROSSSLOT": 2917
+      },
+      "distinctEntities": 2500,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "failing",
+      "controls": false,
+      "first": {
+        "seed": 1,
+        "op": 3,
+        "message": "CROSSSLOT Keys in request don't hash to the same slot"
+      }
+    },
+    {
+      "name": "usage-segment-cache",
+      "siteIds": [
+        "apps/sim/lib/billing/core/usage-segment-cache.ts:54",
+        "apps/sim/lib/billing/core/usage-segment-cache.ts:88"
+      ],
+      "ops": 10000,
+      "failingSeeds": 20,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/sim/lib/billing/core/usage-segment-cache.ts:54",
+          "executed": 6660,
+          "failed": 6660
+        },
+        {
+          "id": "apps/sim/lib/billing/core/usage-segment-cache.ts:88",
+          "executed": 3340,
+          "failed": 3322
+        }
+      ],
+      "errors": {
+        "CROSSSLOT": 6660,
+        "CLIENT_PIPELINE_SLOTS": 3322
+      },
+      "distinctEntities": 3340,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "failing",
+      "controls": false,
+      "first": {
+        "seed": 1,
+        "op": 0,
+        "message": "All keys in the pipeline should belong to the same slots allocation group"
+      }
+    },
+    {
+      "name": "outbox-prune-cursors",
+      "siteIds": [
+        "apps/sim/lib/core/outbox/retention.ts:101",
+        "apps/sim/lib/core/outbox/retention.ts:133"
+      ],
+      "ops": 10000,
+      "failingSeeds": 20,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/sim/lib/core/outbox/retention.ts:101",
+          "executed": 6660,
+          "failed": 6660
+        },
+        {
+          "id": "apps/sim/lib/core/outbox/retention.ts:133",
+          "executed": 3340,
+          "failed": 3340
+        }
+      ],
+      "errors": {
+        "CROSSSLOT": 6660,
+        "CLIENT_PIPELINE_SLOTS": 3340
+      },
+      "distinctEntities": 26859,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "failing",
+      "controls": false,
+      "first": {
+        "seed": 1,
+        "op": 0,
+        "message": "CROSSSLOT Keys in request don't hash to the same slot"
+      }
+    },
+    {
+      "name": "stream-abort-locks",
+      "siteIds": [
+        "apps/sim/lib/mothership/request/session/abort.ts:172"
+      ],
+      "ops": 10000,
+      "failingSeeds": 20,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/sim/lib/mothership/request/session/abort.ts:172",
+          "executed": 5000,
+          "failed": 5000
+        }
+      ],
+      "errors": {
+        "CROSSSLOT": 5000
+      },
+      "distinctEntities": 68437,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "failing",
+      "controls": false,
+      "first": {
+        "seed": 1,
+        "op": 1,
+        "message": "CROSSSLOT Keys in request don't hash to the same slot"
+      }
+    },
+    {
+      "name": "slack-stream-sessions",
+      "siteIds": [
+        "apps/sim/lib/webhooks/slack-stream-sessions.ts:57",
+        "apps/sim/lib/webhooks/slack-stream-sessions.ts:70"
+      ],
+      "ops": 10000,
+      "failingSeeds": 0,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/sim/lib/webhooks/slack-stream-sessions.ts:57",
+          "executed": 5018,
+          "failed": 0
+        },
+        {
+          "id": "apps/sim/lib/webhooks/slack-stream-sessions.ts:70",
+          "executed": 4982,
+          "failed": 0
+        }
+      ],
+      "errors": {},
+      "distinctEntities": 6655,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "ok",
+      "controls": false,
+      "first": null
+    },
+    {
+      "name": "lock",
+      "siteIds": [
+        "apps/sim/lib/core/config/redis.ts:558",
+        "apps/sim/lib/core/config/redis.ts:581"
+      ],
+      "ops": 10000,
+      "failingSeeds": 0,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/sim/lib/core/config/redis.ts:558",
+          "executed": 5011,
+          "failed": 0
+        },
+        {
+          "id": "apps/sim/lib/core/config/redis.ts:581",
+          "executed": 2489,
+          "failed": 0
+        }
+      ],
+      "errors": {},
+      "distinctEntities": 2500,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "ok",
+      "controls": true,
+      "first": null
+    },
+    {
+      "name": "otp",
+      "siteIds": [
+        "apps/sim/lib/core/security/otp.ts:178",
+        "apps/sim/lib/core/security/otp.ts:244"
+      ],
+      "ops": 10000,
+      "failingSeeds": 0,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/sim/lib/core/security/otp.ts:178",
+          "executed": 10030,
+          "failed": 0
+        },
+        {
+          "id": "apps/sim/lib/core/security/otp.ts:244",
+          "executed": 5000,
+          "failed": 0
+        }
+      ],
+      "errors": {},
+      "distinctEntities": 2500,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "ok",
+      "controls": true,
+      "first": null
+    },
+    {
+      "name": "idempotency",
+      "siteIds": [
+        "apps/sim/lib/core/idempotency/service.ts:298",
+        "apps/sim/lib/core/idempotency/service.ts:474",
+        "apps/sim/lib/core/idempotency/service.ts:536",
+        "apps/sim/lib/core/idempotency/service.ts:545"
+      ],
+      "ops": 10000,
+      "failingSeeds": 0,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/sim/lib/core/idempotency/service.ts:298",
+          "executed": 3753,
+          "failed": 0
+        },
+        {
+          "id": "apps/sim/lib/core/idempotency/service.ts:474",
+          "executed": 1247,
+          "failed": 0
+        },
+        {
+          "id": "apps/sim/lib/core/idempotency/service.ts:536",
+          "executed": 3774,
+          "failed": 0
+        },
+        {
+          "id": "apps/sim/lib/core/idempotency/service.ts:545",
+          "executed": 1226,
+          "failed": 0
+        }
+      ],
+      "errors": {},
+      "distinctEntities": 2500,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "ok",
+      "controls": true,
+      "first": null
+    },
+    {
+      "name": "file-doc-store",
+      "siteIds": [
+        "apps/realtime/src/handlers/file-doc-store.ts:708",
+        "apps/realtime/src/handlers/file-doc-store.ts:538",
+        "apps/realtime/src/handlers/file-doc-store.ts:626",
+        "apps/realtime/src/handlers/file-doc-store.ts:488",
+        "apps/realtime/src/handlers/file-doc-store.ts:765",
+        "apps/realtime/src/handlers/file-doc-store.ts:836",
+        "apps/realtime/src/handlers/file-doc-store.ts:1080",
+        "apps/realtime/src/handlers/file-doc-store.ts:1313",
+        "apps/realtime/src/handlers/file-doc-store.ts:1345",
+        "apps/realtime/src/handlers/file-doc-store.ts:892"
+      ],
+      "ops": 10000,
+      "failingSeeds": 20,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:708",
+          "executed": 2500,
+          "failed": 2500
+        },
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:538",
+          "executed": 1503,
+          "failed": 1503
+        },
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:626",
+          "executed": 748,
+          "failed": 748
+        },
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:488",
+          "executed": 692,
+          "failed": 692
+        },
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:765",
+          "executed": 747,
+          "failed": 747
+        },
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:836",
+          "executed": 799,
+          "failed": 799
+        },
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:1080",
+          "executed": 760,
+          "failed": 760
+        },
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:1313",
+          "executed": 813,
+          "failed": 813
+        },
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:1345",
+          "executed": 690,
+          "failed": 690
+        },
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:892",
+          "executed": 748,
+          "failed": 0
+        }
+      ],
+      "errors": {
+        "CROSSSLOT": 9252
+      },
+      "distinctEntities": 2500,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "failing",
+      "controls": false,
+      "first": {
+        "seed": 1,
+        "op": 0,
+        "message": "CROSSSLOT Keys in request don't hash to the same slot"
+      }
+    },
+    {
+      "name": "file-doc-reader",
+      "siteIds": [
+        "apps/realtime/src/handlers/file-doc-store.ts:1218",
+        "apps/realtime/src/handlers/file-doc-store.ts:1227"
+      ],
+      "ops": 10000,
+      "failingSeeds": 20,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:1218",
+          "executed": 5000,
+          "failed": 5000
+        },
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:1227",
+          "executed": 5000,
+          "failed": 5000
+        }
+      ],
+      "errors": {
+        "CROSSSLOT": 5000
+      },
+      "distinctEntities": 2500,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "failing",
+      "controls": false,
+      "first": {
+        "seed": 1,
+        "op": 2,
+        "message": "CROSSSLOT Keys in request don't hash to the same slot"
+      }
+    }
+  ],
+  "totals": {
+    "drivers": 13,
+    "failingDrivers": 9,
+    "unverifiableDrivers": 0,
+    "failingSites": 26,
+    "executedSites": 40,
+    "unexecutedSites": 0,
+    "ops": 130000,
+    "mismatches": 0,
+    "coverage": {
+      "resolvedErrorSites": 41,
+      "executedResolvedErrorSites": 25,
+      "ratio": 0.6098
+    }
+  },
+  "unverifiable": [],
+  "scanner": {
+    "falsePositives": [],
+    "falseNegatives": []
+  }
+}

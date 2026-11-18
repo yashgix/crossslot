@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>crossslot</title>
+<meta name="description" content="A Redis Cluster compatibility audit of Sim. On Sim's pinned commit, 26 of the 40 Redis call sites the harness executed fail on a real 6-node cluster, in 9 of 13 features. The standalone control has 0 errors.">
+<style>
+:root { color-scheme: light; --paper: #fff; --band: #f3f5f9; --ink: #16202e; --muted: #556070; --line: #dde3ec;
+  --accent: #1d4ed8; --soft: #e6edfd; --warn: #b45309; --warn-soft: #fdf1e4; --code: #eef1f6;
+  --sans: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 1.0625rem/1.65 var(--sans); }
+.wrap { padding-inline: 16px; }
+.col { max-width: 760px; margin-inline: auto; }
+.wide { max-width: 980px; margin-inline: auto; }
+a { color: var(--accent); text-underline-offset: 3px; }
+h1, h2, h3 { line-height: 1.2; margin: 0; text-wrap: balance; }
+h1 { font-family: var(--mono); font-size: clamp(2.2rem, 6vw, 3.2rem); letter-spacing: -0.03em; }
+h2 { font-size: 1.6rem; letter-spacing: -0.015em; }
+h3 { font-size: 1.05rem; }
+p, ul, ol { margin: 0; }
+ul, ol { padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.4rem; }
+code { font-family: var(--mono); font-size: 0.88em; background: var(--code); padding: 0.08em 0.35em; border-radius: 4px; overflow-wrap: anywhere; }
+.stack { display: flex; flex-direction: column; gap: 1.1rem; }
+.muted { color: var(--muted); }
+.small { font-size: 0.8125rem; }
+section { padding-block: 2.5rem; border-top: 1px solid var(--line); }
+header { padding-block: 3rem 2rem; background: var(--band); }
+.lede { font-size: 1.25rem; color: var(--muted); line-height: 1.5; }
+.eyebrow { font-family: var(--mono); font-size: 0.8125rem; color: var(--accent); letter-spacing: 0.06em; text-transform: uppercase; }
+pre { margin: 0; background: var(--band); border: 1px solid var(--line); border-radius: 8px; padding: 0.9rem 1rem; overflow-x: auto; font: 0.82rem/1.55 var(--mono); }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; }
+.tile { border: 1px solid var(--line); border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; gap: 0.2rem; background: var(--paper); }
+.tile b { font: 600 1.6rem var(--mono); font-variant-numeric: tabular-nums; color: var(--accent); }
+.tile.warn b { color: var(--warn); }
+.tile span { font-size: 0.9rem; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { text-align: left; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { background: var(--band); color: var(--muted); font-weight: 500; font-size: 0.8125rem; }
+tr:last-child td { border-bottom: 0; }
+tr.sum td { font-weight: 600; background: var(--band); }
+.note { background: var(--warn-soft); border-radius: 12px; padding: 1rem 1.2rem; }
+.fact { background: var(--soft); border-radius: 12px; padding: 1rem 1.2rem; }
+.tag { display: inline-block; font: 600 0.75rem var(--mono); letter-spacing: 0.05em; text-transform: uppercase; padding: 0.1rem 0.5rem; border-radius: 999px; margin-right: 0.4rem; vertical-align: 1px; }
+.tag.m { background: var(--soft); color: var(--accent); border: 1px solid var(--accent); }
+.tag.i { background: var(--paper); color: var(--ink); border: 1px solid var(--muted); }
+.tag.l { background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn); }
+.diagram { margin: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.diagram svg { display: block; width: 100%; max-width: 420px; height: auto; margin-inline: auto; }
+.diagram figcaption { font-size: 0.875rem; color: var(--muted); }
+svg text { font-family: var(--sans); fill: var(--ink); }
+svg .mono { font-family: var(--mono); }
+svg .sub { fill: var(--muted); }
+svg .key { fill: var(--soft); stroke: var(--accent); stroke-width: 1.2; }
+svg .node { fill: var(--band); stroke: var(--muted); stroke-width: 1.2; }
+svg .bad { fill: var(--warn-soft); stroke: var(--warn); stroke-width: 1.2; }
+svg .warnt { fill: var(--warn); font-weight: 600; }
+svg .line { stroke: var(--muted); stroke-width: 1.4; fill: none; }
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.9rem; padding: 0; list-style: none; }
+.cards li { border: 1px solid var(--line); border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.cards li b { font-family: var(--mono); font-size: 0.875rem; color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.topbar { position: sticky; top: 0; z-index: 5; background: rgba(255,255,255,0.97); border-bottom: 1px solid var(--line); }
+.topbar-in { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-block: 0.6rem; }
+.brand { font-family: var(--mono); }
+.tabs { display: flex; gap: 0.25rem; margin-left: auto; }
+.tabs button { font: inherit; font-size: 0.8125rem; font-weight: 500; border: 0; background: transparent; color: var(--muted); padding: 0.4rem 0.8rem; border-radius: 999px; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--soft); color: var(--accent); }
+.gh { font-size: 0.8125rem; font-weight: 600; text-decoration: none; white-space: nowrap; color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 0.3rem 0.8rem; }
+.gh:hover { background: var(--soft); }
+.btn { display: inline-flex; align-items: center; gap: 0.4rem; font: inherit; font-weight: 500; padding: 0.55rem 1rem; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); background: var(--paper); cursor: pointer; }
+footer { padding-block: 1.5rem 3rem; border-top: 1px solid var(--line); }
+@media (max-width: 760px) {
+  .brand { display: none; }
+  .tabs button { padding: 0.4rem 0.55rem; }
+  .gh { padding: 0.3rem 0.6rem; }
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cards { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar wrap"><div class="wide topbar-in">
+  <span class="brand">crossslot</span>
+  <div class="tabs" role="tablist" aria-label="View">
+    <button role="tab" id="tab-overview" aria-controls="overview" aria-selected="true" tabindex="0" data-view="overview">Overview</button>
+    <button role="tab" id="tab-details" aria-controls="details" aria-selected="false" tabindex="-1" data-view="details">Technical details</button>
+  </div>
+  <a class="gh" href="https://github.com/yashgix/crossslot" target="_blank" rel="noopener">GitHub ↗</a>
+</div></div>
+
+<main id="overview" role="tabpanel" aria-labelledby="tab-overview">
+<header class="wrap"><div class="col stack">
+  <p class="eyebrow">Redis Cluster &middot; Sim &middot; TypeScript</p>
+  <h1>crossslot</h1>
+  <p class="lede">On Sim's pinned commit <code>edf5f0a</code>, 26 of the 40 Redis call sites the harness executed,
+  in 9 of the 13 features it drives, fail on a real 6-node Redis 8.10.3 cluster. The standalone control has 0 errors.</p>
+  <p class="small muted"><a href="https://github.com/yashgix/crossslot">github.com/yashgix/crossslot</a> &middot; MIT</p>
+</div></header>
+
+<section class="wrap"><div class="wide stack">
+  <h2>The result</h2>
+  <div class="tiles">
+    <div class="tile warn"><b>26 of 40</b><span>executed call sites fail on the cluster</span></div>
+    <div class="tile warn"><b>9 of 13</b><span>features have at least one failing site</span></div>
+    <div class="tile"><b>0</b><span>errors on standalone Redis, same operations</span></div>
+    <div class="tile"><b>0</b><span>mismatches (see Limitations)</span></div>
+  </div>
+  <p><span class="tag m">Measured</span>130,000 operations per run (13 features, 20 seeds, 500 operations each),
+  replayed on a standalone Redis and on a 6-node cluster (3 primaries, 3 replicas).</p>
+  <div class="note"><b>Scope.</b> Sim does not support Redis Cluster today. That is what
+  <a href="https://github.com/simstudioai/sim/issues/9734">issue #9734</a> asks for. These are compatibility
+  findings for that request, not production bugs. They show what fails when Sim's Redis code is pointed at a cluster.</div>
+</div></section>
+
+<section class="wrap"><div class="col stack">
+  <h2>Why a cluster changes behaviour</h2>
+  <p>A cluster splits the key space into 16,384 hash slots, and each primary owns a range of them. A key's slot is a
+  hash of its name. The rule that matters here: each multi-key command, Lua script and transaction needs all its keys in
+  one slot. If they are not, the server answers <code>CROSSSLOT</code>. If the keys live on different nodes, a
+  command sent to the wrong node gets <code>MOVED</code>. An explicit ioredis pipeline in cluster mode is not split
+  across nodes. Its keys must fall in one slot allocation group, and ioredis refuses the pipeline before sending
+  anything if they do not.</p>
+  <p>Standalone Redis has none of these rules, so code that works there can fail on a cluster with no change.</p>
+  <figure class="diagram">
+    <svg viewBox="0 0 340 280" role="img" aria-labelledby="t1 d1">
+      <title id="t1">One EVAL over four keys in four slots</title>
+      <desc id="d1">The token bucket's four keys have slots 7116, 6932 and 5831 on node 7002 and slot 12957 on node 7003, so the server refuses the call.</desc>
+      <defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#556070"/></marker></defs>
+      <text x="0" y="14" font-size="12" class="sub">keys of one EVAL</text>
+      <text x="230" y="14" font-size="12" class="sub">owner</text>
+      <rect class="key" x="0" y="24" width="150" height="44" rx="6"/>
+      <text class="mono" x="10" y="43" font-size="13">…:cooldown</text><text class="mono sub" x="10" y="60" font-size="12">slot 7116</text>
+      <rect class="key" x="0" y="78" width="150" height="44" rx="6"/>
+      <text class="mono" x="10" y="97" font-size="13">…:quota</text><text class="mono sub" x="10" y="114" font-size="12">slot 6932</text>
+      <rect class="key" x="0" y="132" width="150" height="44" rx="6"/>
+      <text class="mono" x="10" y="151" font-size="13">…:tokens</text><text class="mono sub" x="10" y="168" font-size="12">slot 5831</text>
+      <rect class="key" x="0" y="186" width="150" height="44" rx="6"/>
+      <text class="mono" x="10" y="205" font-size="13">…:requests</text><text class="mono sub" x="10" y="222" font-size="12">slot 12957</text>
+      <line class="line" x1="152" y1="46" x2="226" y2="46" marker-end="url(#ar)"/>
+      <line class="line" x1="152" y1="100" x2="226" y2="100" marker-end="url(#ar)"/>
+      <line class="line" x1="152" y1="154" x2="226" y2="154" marker-end="url(#ar)"/>
+      <line class="line" x1="152" y1="208" x2="226" y2="208" marker-end="url(#ar)"/>
+      <rect class="node" x="230" y="24" width="110" height="152" rx="6"/>
+      <text x="242" y="94" font-size="14" font-weight="600">node 7002</text>
+      <rect class="node" x="230" y="186" width="110" height="44" rx="6"/>
+      <text x="242" y="213" font-size="14" font-weight="600">node 7003</text>
+      <rect class="bad" x="0" y="244" width="340" height="32" rx="6"/>
+      <text class="warnt" x="170" y="264" font-size="13" text-anchor="middle">4 slots in one EVAL: CROSSSLOT</text>
+    </svg>
+    <figcaption>The token bucket's atomic consume, with a real key set from the reproduction output. The first three
+    keys share a node but not a slot, and the refusal is the same either way. The full key names are
+    <code>ratelimit:tb:provider:embedding:openai:3f9a1c2b7d40:&lt;suffix&gt;</code>.</figcaption>
+  </figure>
+  <p><span class="tag i">Interpretation</span>The failing key sets tested here lack a common hash tag and span slots in this configuration. A hash tag is a part of the key in
+  braces, <code>{like this}</code>. When a key has one, only that part is hashed, so keys with the same tag share a
+  slot. That is the usual way to keep related keys together.</p>
+</div></section>
+
+<section class="wrap"><div class="col stack">
+  <h2>Four ways it fails</h2>
+  <p><span class="tag m">Measured</span>Each class below appears in the run. Per-feature counts are in Technical details.</p>
+  <figure class="diagram">
+    <svg viewBox="0 0 340 330" role="img" aria-labelledby="t2 d2">
+      <title id="t2">Where each failure class comes from</title>
+      <desc id="d2">Sim code calls a client library, which calls a Redis node. The client refuses pipelines whose keys are not in one slot allocation group. The node refuses cross-slot commands and scripts, scripts that read an undeclared key on another node, and answers MOVED for a transaction sent to the wrong node.</desc>
+      <defs><marker id="ar2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#556070"/></marker></defs>
+      <rect class="key" x="0" y="0" width="340" height="40" rx="6"/>
+      <text x="12" y="25" font-size="14" font-weight="600">Sim code</text>
+      <text class="sub" x="328" y="25" font-size="12" text-anchor="end">pipeline, MULTI, EVAL, DEL, MGET</text>
+      <line class="line" x1="170" y1="42" x2="170" y2="62" marker-end="url(#ar2)"/>
+      <rect class="bad" x="0" y="66" width="340" height="66" rx="6"/>
+      <text x="12" y="88" font-size="14" font-weight="600">Client library</text>
+      <text class="warnt" x="12" y="108" font-size="13">client pipeline refusal</text>
+      <text x="12" y="125" font-size="12">ioredis refuses a pipeline across slot groups</text>
+      <line class="line" x1="170" y1="134" x2="170" y2="154" marker-end="url(#ar2)"/>
+      <rect class="bad" x="0" y="158" width="340" height="170" rx="6"/>
+      <text x="12" y="180" font-size="14" font-weight="600">Redis node</text>
+      <text class="warnt" x="12" y="202" font-size="13">CROSSSLOT</text>
+      <text x="12" y="219" font-size="12">a command or script with keys in 2+ slots</text>
+      <text class="warnt" x="12" y="242" font-size="13">Lua non-local key</text>
+      <text x="12" y="259" font-size="12">a script reads a key it did not declare in KEYS</text>
+      <text class="warnt" x="12" y="282" font-size="13">MOVED inside a MULTI</text>
+      <text x="12" y="299" font-size="12">the MULTI goes to one node, a key owned by another</text>
+      <text x="12" y="316" font-size="12">gets MOVED, which a transaction cannot follow</text>
+    </svg>
+    <figcaption>Where each class is raised. The client check happens before anything is sent.</figcaption>
+  </figure>
+</div></section>
+
+<section class="wrap"><div class="wide stack">
+  <h2>Three reproductions</h2>
+  <p>Each runs Sim's own code from the pinned commit against a standalone Redis and the cluster, prints PASS or FAIL
+  per case, and exits nonzero if an outcome is not the expected one. All three together: 15 PASS, 0 FAIL.</p>
+  <ul class="cards">
+    <li><b>Token bucket</b><span>One <code>EVAL</code> over 4 keys in 4 slots. The server answers <code>CROSSSLOT</code>.</span><code>npm run repro:token-bucket</code></li>
+    <li><b>Hosted-key queue</b><span>Pipelines mixing a list key and heartbeat keys are refused by the client, and a Lua script reads an undeclared key.</span><code>npm run repro:hosted-queue</code></li>
+    <li><b>Realtime rooms</b><span><code>EVALSHA</code> and <code>DEL</code> over keys in several slots give <code>CROSSSLOT</code>. A <code>MULTI</code> gets <code>MOVED</code>.</span><code>npm run repro:realtime-rooms</code></li>
+  </ul>
+</div></section>
+
+<section class="wrap"><div class="col stack">
+  <h2>If Sim implements #9734</h2>
+  <p><span class="tag i">Interpretation</span>These are options a maintainer could weigh, not a finished fix.
+  The repository applies one candidate change to a copy of the code to see what it would take. It is tested only by
+  this harness.</p>
+  <ul>
+    <li><b>Hash tags</b> so the keys of one operation share a slot, for example the queue's list and heartbeat keys
+    under one tag. Renaming keys orphans the old ones, and old and new versions do not share state during a rolling deploy.</li>
+    <li><b>Split multi-key scripts and pipelines</b> into per-key calls where atomicity is not needed, such as the
+    <code>MGET</code> in the usage segment cache.</li>
+    <li><b>Rework operations whose keys cannot share a tag.</b> The room manager's <code>MULTI</code> at
+    <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/rooms/redis-manager.ts#L243">redis-manager.ts:243</a> touches room keys and socket
+    keys, and a socket belongs to several rooms. In the candidate change it becomes two transactions, and removal and
+    activity updates stop being atomic across the two.</li>
+    <li><b>Declare every key a script touches.</b> The hosted queue's script builds a heartbeat key inside the script.</li>
+  </ul>
+  <p>The candidate change leaves 1 site failing (the token bucket's multi-bucket script) and 2 features it cannot verify. See
+  Technical details.</p>
+</div></section>
+
+<section class="wrap"><div class="col stack">
+  <h2>Limitations</h2>
+  <ul>
+    <li>The counts are failing Redis operations, not application crashes. Sim catches several of these errors and fails
+    open with warnings.</li>
+    <li>Zero mismatches does not mean equal behaviour. A failed operation skips the comparison with the standalone result.</li>
+    <li>The harness drives Sim's extracted Lua scripts and key builders through the same client libraries (ioredis 5.11.1,
+    within Sim's <code>^5.6.0</code>, and node-redis 5.10.0, exact). It does not run Sim's whole application.</li>
+    <li>The reproductions inject a cluster client into Sim's unchanged methods, because Sim has no cluster option.</li>
+    <li>The harness's classifier counts any Redis reply error as a Sim failure before it checks for harness errors. No
+    effect was found on these results, but it is a limitation.</li>
+    <li>The harness repairs some failed writes with single-key commands so that later sites are exercised. Unrepaired
+    failures also suppress later comparisons involving the affected entities. <code>XREAD</code> blocking waits are omitted.
+    Timing, concurrency and pub/sub compatibility are not established.</li>
+    <li>One Redis version (8.10.3), one machine, one pinned Sim commit.</li>
+  </ul>
+  <p><button class="btn" type="button" data-view="details">Technical details →</button></p>
+</div></section>
+</main>
+
+<main id="details" role="tabpanel" aria-labelledby="tab-details" hidden>
+<header class="wrap"><div class="col stack">
+  <p class="eyebrow">Technical details</p>
+  <h1 style="font-size:clamp(1.8rem,4.4vw,2.5rem)">Method, results and data</h1>
+  <p class="small muted">Numbers come from <code>results/before.json</code>, <code>results/after.json</code>,
+  <code>results/summary.txt</code> and <code>results/repro/</code>. Measured facts, interpretation and limitations are labelled.</p>
+</div></header>
+
+<section class="wrap"><div class="col stack">
+  <h2>Method</h2>
+  <ul>
+    <li><b>Corpus.</b> The Sim files the tool reads are a pinned set of 175 files at commit
+    <a href="https://github.com/simstudioai/sim/tree/edf5f0a47da8147466cb893c0a1666058331d42e"><code>edf5f0a47da8147466cb893c0a1666058331d42e</code></a>,
+    fetched from GitHub and checked against SHA-256 hashes in <code>data/MANIFEST.sha256</code>. All 175 match.</li>
+    <li><b>Scan.</b> A scanner reads the corpus and lists Redis calls it can analyse (<code>eval</code>,
+    <code>evalsha</code>, <code>multi</code>, <code>pipeline</code>, multi-key commands). Recognised calls whose scripts or keys cannot be resolved are reported as <code>UNRESOLVED</code>. Unsupported call
+    syntax, for example <code>redis["eval"](...)</code>, can be missed.</li>
+    <li><b>Drivers.</b> 13 drivers each replay one Sim feature: its real Lua scripts and key builders, through ioredis
+    5.11.1 or node-redis 5.10.0. Each runs 20 seeds of 500 operations, 10,000 operations per feature and 130,000 in total.</li>
+    <li><b>Same stream, two targets.</b> The same seeded operation stream runs on a standalone Redis and on a 6-node
+    cluster, both Redis 8.10.3, started by <code>npm run cluster:up</code> from <code>compose.yaml</code>.</li>
+    <li><b>A failing site.</b> A call site counts as failing when Redis or the cluster client refuses a call made at that
+    site. A site that never ran does not count. A control feature uses only single-key scripts and must report 0 failures.</li>
+    <li><b>After the patch.</b> The candidate change is applied to a copy of the corpus and the same run is repeated, with the
+    unpatched corpus as the reference. A replacement call under a condition the harness cannot evaluate is
+    <code>unverifiable</code> and never counts as a pass.</li>
+  </ul>
+  <p><span class="tag m">Measured</span>Scanner against run, on executed sites: 0 false positives, 0 false negatives
+  (<code>scanner</code> in both result files).</p>
+</div></section>
+
+<section class="wrap"><div class="wide stack">
+  <h2>Before the patch, by feature</h2>
+  <p><span class="tag m">Measured</span>26 of 40 executed sites fail, in 9 of 13 features. Standalone errors: 0.
+  Mismatches: 0. Error counts are operations out of 10,000 per feature.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Feature</th><th>Tracked sites executed</th><th>Sites failing</th><th>Error classes (operations)</th><th>Failing sites (Sim file:line)</th></tr></thead>
+    <tbody>
+<tr><td><code>hosted-queue</code></td><td>4</td><td>4</td><td>client pipeline refusal 3,394, Lua non-local key 3,168, CROSSSLOT 1,721</td><td><a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/sim/lib/core/rate-limiter/hosted-key/queue.ts#L98">queue.ts:98</a>, <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/sim/lib/core/rate-limiter/hosted-key/queue.ts#L138">queue.ts:138</a>, <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/sim/lib/core/rate-limiter/hosted-key/queue.ts#L166">queue.ts:166</a>, <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/sim/lib/core/rate-limiter/hosted-key/queue.ts#L188">queue.ts:188</a></td></tr>
+<tr><td><code>realtime-rooms</code></td><td>4</td><td>4</td><td>CROSSSLOT 7,341, MOVED 2,659</td><td><a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/rooms/redis-manager.ts#L243">redis-manager.ts:243</a>, <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/rooms/redis-manager.ts#L281">redis-manager.ts:281</a>, <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/rooms/redis-manager.ts#L385">redis-manager.ts:385</a>, <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/rooms/redis-manager.ts#L404">redis-manager.ts:404</a></td></tr>
+<tr><td><code>token-bucket</code></td><td>4</td><td>1</td><td>CROSSSLOT 5,000</td><td><a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/sim/lib/core/rate-limiter/storage/redis-token-bucket.ts#L172">redis-token-bucket.ts:172</a></td></tr>
+<tr><td><code>approval-store</code></td><td>1</td><td>1</td><td>CROSSSLOT 2,917</td><td><a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/sim/lib/cli-auth/approval-store.ts#L160">approval-store.ts:160</a></td></tr>
+<tr><td><code>usage-segment-cache</code></td><td>2</td><td>2</td><td>CROSSSLOT 6,660, client pipeline refusal 3,322</td><td><a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/sim/lib/billing/core/usage-segment-cache.ts#L54">usage-segment-cache.ts:54</a>, <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/sim/lib/billing/core/usage-segment-cache.ts#L88">usage-segment-cache.ts:88</a></td></tr>
+<tr><td><code>outbox-prune-cursors</code></td><td>2</td><td>2</td><td>CROSSSLOT 6,660, client pipeline refusal 3,340</td><td><a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/sim/lib/core/outbox/retention.ts#L101">retention.ts:101</a>, <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/sim/lib/core/outbox/retention.ts#L133">retention.ts:133</a></td></tr>
+<tr><td><code>stream-abort-locks</code></td><td>1</td><td>1</td><td>CROSSSLOT 5,000</td><td><a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/sim/lib/mothership/request/session/abort.ts#L172">abort.ts:172</a></td></tr>
+<tr><td><code>slack-stream-sessions</code></td><td>2</td><td>0</td><td><span class="muted">none</span></td><td><span class="muted">none</span></td></tr>
+<tr><td><code>lock</code> <span class="muted">(control)</span></td><td>2</td><td>0</td><td><span class="muted">none</span></td><td><span class="muted">none</span></td></tr>
+<tr><td><code>otp</code> <span class="muted">(control)</span></td><td>2</td><td>0</td><td><span class="muted">none</span></td><td><span class="muted">none</span></td></tr>
+<tr><td><code>idempotency</code> <span class="muted">(control)</span></td><td>4</td><td>0</td><td><span class="muted">none</span></td><td><span class="muted">none</span></td></tr>
+<tr><td><code>file-doc-store</code></td><td>10</td><td>9</td><td>CROSSSLOT 9,252</td><td><a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/handlers/file-doc-store.ts#L708">file-doc-store.ts:708</a>, <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/handlers/file-doc-store.ts#L538">file-doc-store.ts:538</a>, <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/handlers/file-doc-store.ts#L626">file-doc-store.ts:626</a>, <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/handlers/file-doc-store.ts#L488">file-doc-store.ts:488</a>, <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/handlers/file-doc-store.ts#L765">file-doc-store.ts:765</a>, <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/handlers/file-doc-store.ts#L836">file-doc-store.ts:836</a>, <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/handlers/file-doc-store.ts#L1080">file-doc-store.ts:1080</a>, <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/handlers/file-doc-store.ts#L1313">file-doc-store.ts:1313</a>, <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/handlers/file-doc-store.ts#L1345">file-doc-store.ts:1345</a></td></tr>
+<tr><td><code>file-doc-reader</code></td><td>2</td><td>2</td><td>CROSSSLOT 5,000</td><td><a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/handlers/file-doc-store.ts#L1218">file-doc-store.ts:1218</a>, <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/handlers/file-doc-store.ts#L1227">file-doc-store.ts:1227</a></td></tr>
+<tr class="sum"><td>Total</td><td>40</td><td>26</td><td>9 of 13 features failing</td><td></td></tr>
+    </tbody>
+  </table></div>
+  <p class="small muted">Site links point at Sim's pinned commit. A feature's operations can fail at more than one class
+  because one feature mixes commands, scripts and pipelines.</p>
+</div></section>
+
+<section class="wrap"><div class="wide stack">
+  <h2>After the candidate patch, by feature</h2>
+  <p><span class="tag m">Measured</span>1 of 36 executed sites still fails. 2 features are unverifiable. Mismatches: 0.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Feature</th><th>Tracked sites executed</th><th>Sites failing</th><th>Result</th><th>Note</th></tr></thead>
+    <tbody>
+<tr><td><code>hosted-queue</code></td><td>4</td><td>0</td><td>passes</td><td></td></tr>
+<tr><td><code>realtime-rooms</code></td><td>7</td><td>0</td><td>passes</td><td></td></tr>
+<tr><td><code>token-bucket</code></td><td>4</td><td>1</td><td>fails</td><td>still failing: <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/sim/lib/core/rate-limiter/storage/redis-token-bucket.ts#L172">redis-token-bucket.ts:172</a></td></tr>
+<tr><td><code>approval-store</code></td><td>1</td><td>0</td><td>passes</td><td></td></tr>
+<tr><td><code>usage-segment-cache</code></td><td>0</td><td>0</td><td>passes</td><td></td></tr>
+<tr><td><code>outbox-prune-cursors</code></td><td>0</td><td>0</td><td>unverifiable</td><td>replacement calls under a condition the harness cannot evaluate, patched source: <a href="https://github.com/yashgix/crossslot/blob/main/patch/crossslot.patch#L634">retention.ts:138</a>, <a href="https://github.com/yashgix/crossslot/blob/main/patch/crossslot.patch#L640">retention.ts:144</a></td></tr>
+<tr><td><code>stream-abort-locks</code></td><td>0</td><td>0</td><td>passes</td><td></td></tr>
+<tr><td><code>slack-stream-sessions</code></td><td>2</td><td>0</td><td>passes</td><td></td></tr>
+<tr><td><code>lock</code></td><td>2</td><td>0</td><td>passes</td><td></td></tr>
+<tr><td><code>otp</code></td><td>2</td><td>0</td><td>passes</td><td></td></tr>
+<tr><td><code>idempotency</code></td><td>4</td><td>0</td><td>passes</td><td></td></tr>
+<tr><td><code>file-doc-store</code></td><td>10</td><td>0</td><td>passes</td><td></td></tr>
+<tr><td><code>file-doc-reader</code></td><td>0</td><td>0</td><td>unverifiable</td><td>replacement calls under a condition the harness cannot evaluate, patched source: <a href="https://github.com/yashgix/crossslot/blob/main/patch/crossslot.patch#L130">file-doc-store.ts:1198</a></td></tr>
+<tr class="sum"><td>Total</td><td>36</td><td>1</td><td>1 failing, 2 unverifiable</td><td></td></tr>
+    </tbody>
+  </table></div>
+  <p><span class="tag i">Interpretation</span>Tracked sites executed go from 40 to 36 because the patched code has different call sites
+  (for example one <code>MGET</code> becomes one <code>GET</code> per key). A feature with 0 tracked sites and result "passes"
+  (for example <code>usage-segment-cache</code>) still runs its replacement single-key calls and they did not fail, but those
+  calls are not in the tracked-site counter. The patch
+  changes 7 Sim files and key names, and it changes atomicity in the realtime room manager. The list of changes, key
+  name changes and lifetimes is in <code>patch/NOTES.md</code>. Zero mismatches here is subject to the same limitation
+  as before: failed operations skip comparison, and the unverifiable features are not counted as passing.</p>
+</div></section>
+
+<section class="wrap"><div class="col stack">
+  <h2>Reproduction 1: token bucket</h2>
+  <pre>npm run repro:token-bucket</pre>
+  <ul>
+    <li><b>Code.</b> <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/sim/lib/core/rate-limiter/storage/redis-token-bucket.ts#L166"><code>RedisTokenBucket.consumeTokensAtomically</code>, redis-token-bucket.ts:166</a>.
+    One <code>EVAL</code> over 4 keys at <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/sim/lib/core/rate-limiter/storage/redis-token-bucket.ts#L172">:172</a>.
+    The keys are built in <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/sim/lib/core/rate-limiter/provider-admission.ts#L199">provider-admission.ts</a>. The class runs with no stubs.</li>
+    <li><b>Key slots.</b> From <code>CLUSTER KEYSLOT</code>, key prefix <code>ratelimit:tb:provider:embedding:openai:3f9a1c2b7d40</code>.</li>
+  </ul>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Key suffix</th><th>Slot</th><th>Owner</th></tr></thead>
+    <tbody>
+      <tr><td><code>:cooldown</code></td><td>7116</td><td>127.0.0.1:7002</td></tr>
+      <tr><td><code>:quota</code></td><td>6932</td><td>127.0.0.1:7002</td></tr>
+      <tr><td><code>:tokens</code></td><td>5831</td><td>127.0.0.1:7002</td></tr>
+      <tr><td><code>:requests</code></td><td>12957</td><td>127.0.0.1:7003</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li><b>Standalone.</b> <code>allowed {"allowed":true,"retryAfterMs":0}</code>.</li>
+    <li><b>Cluster.</b> <code>ReplyError: CROSSSLOT Keys in request don't hash to the same slot</code>.</li>
+  </ul>
+</div></section>
+
+<section class="wrap"><div class="col stack">
+  <h2>Reproduction 2: hosted-key queue</h2>
+  <pre>npm run repro:hosted-queue</pre>
+  <ul>
+    <li><b>Code.</b> <code>HostedKeyQueue</code> in <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/sim/lib/core/rate-limiter/hosted-key/queue.ts#L98">queue.ts</a>:
+    <code>enqueue</code> (:98), <code>checkHead</code> (:138), <code>refreshHeartbeat</code> (:166), <code>dequeue</code> (:188).
+    It runs Sim's real module with the logger, an error helper and the Redis config module stubbed. The stubs never touch Redis.</li>
+    <li><b>Key slots.</b> List <code>hosted-queue:exa:ws_8c1f2a</code> in slot 485 (127.0.0.1:7001), heartbeat keys
+    <code>hosted-queue-tkt:exa:ws_8c1f2a:tkt_a1</code> in 8077 (7002) and <code>:tkt_b2</code> in 15037 (7003).</li>
+    <li><b>Standalone.</b> <code>enqueue {"position":0,"enabled":true}</code>, <code>checkHead "head"</code>, no warnings.</li>
+    <li><b>Cluster, <code>enqueue</code>, <code>refreshHeartbeat</code>, <code>dequeue</code>.</b> Sim logs a warning with
+    <code>All keys in the pipeline should belong to the same slots allocation group</code>, the ioredis client-side refusal.</li>
+    <li><b>Cluster, <code>checkHead</code>.</b> Sim logs <code>ERR Script attempted to access a non local key in a cluster node script</code>.
+    The script builds the heartbeat key from <code>ARGV</code> and reads it without declaring it.</li>
+    <li><b>Seeded case.</b> The <code>checkHead</code> case is seeded: <code>enqueue</code> cannot add the head on a
+    cluster, so the script pushes it with one single-key <code>RPUSH</code> so that <code>checkHead</code> has a list to read.</li>
+  </ul>
+</div></section>
+
+<section class="wrap"><div class="col stack">
+  <h2>Reproduction 3: realtime rooms</h2>
+  <pre>npm run repro:realtime-rooms</pre>
+  <ul>
+    <li><b>Code.</b> <code>RedisRoomManager</code> in <a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/rooms/redis-manager.ts#L243">redis-manager.ts</a>
+    (node-redis 5.10.0): <code>addUserToRoom</code> (:243, <code>MULTI</code> over 4 keys),
+    <code>removeUserFromRoom</code> (<a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/rooms/redis-manager.ts#L281">:281</a>, <code>EVALSHA</code> over 4),
+    <code>deleteRoom</code> (<a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/rooms/redis-manager.ts#L385">:385</a>, <code>DEL</code> over 2),
+    <code>updateUserActivity</code> (<a href="https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/rooms/redis-manager.ts#L404">:404</a>, <code>EVALSHA</code> over 3).
+    Sim's real module runs with the logger, the protocol helper and the presence helper stubbed.</li>
+    <li><b>How the cluster client gets in.</b> The manager builds its own client in its constructor and Sim has no
+    cluster option, so for the cluster run the script sets the manager's private <code>redis</code> field to a
+    <code>createCluster()</code> client. No Sim code is changed.</li>
+  </ul>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Key</th><th>Slot</th><th>Owner</th></tr></thead>
+    <tbody>
+      <tr><td><code>workflow:wf_4d7e91:users</code></td><td>4318</td><td>127.0.0.1:7001</td></tr>
+      <tr><td><code>workflow:wf_4d7e91:meta</code></td><td>4548</td><td>127.0.0.1:7001</td></tr>
+      <tr><td><code>socket:sock_Q8nv2:rooms</code></td><td>3140</td><td>127.0.0.1:7001</td></tr>
+      <tr><td><code>socket:sock_Q8nv2:session</code></td><td>6864</td><td>127.0.0.1:7002</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li><b>Standalone.</b> All four methods succeed with no error logged.</li>
+    <li><b>Cluster.</b> <code>updateUserActivity</code>, <code>removeUserFromRoom</code> and <code>deleteRoom</code> give
+    <code>CROSSSLOT Keys in request don't hash to the same slot</code>, a server refusal.
+    <code>addUserToRoom</code> gives <code>MOVED 6864 127.0.0.1:7002</code>.</li>
+  </ul>
+  <p><span class="tag i">Interpretation</span>The <code>MOVED</code> comes from node-redis sending the whole
+  <code>MULTI</code> to the node that owns the first key's slot. The <code>session</code> key belongs to another node and
+  a redirect cannot be followed inside a transaction. Which error appears, <code>MOVED</code> or <code>CROSSSLOT</code>,
+  depends on whether the keys' slots happen to live on one node. Either way the transaction only works if its keys share a slot.
+  The <code>CROSSSLOT</code> cases are the cleaner evidence.</p>
+</div></section>
+
+<section class="wrap"><div class="col stack">
+  <h2>Controls</h2>
+  <p><span class="tag m">Measured</span>The three control features (<code>lock</code>, <code>otp</code>,
+  <code>idempotency</code>) use only single-key operations. They ran 10,000 operations each on the cluster with 0 failing
+  sites, and the run exits with an error if a control fails. <code>slack-stream-sessions</code> also has 0 failing sites.
+  The standalone run had 0 errors in every feature (<code>referenceErrors</code> in <code>before.json</code>).</p>
+  <p><span class="tag i">Interpretation</span>The single-key features ran without failures on the cluster, so the failures
+  above follow the multi-key rule and not a general problem with the cluster client.</p>
+</div></section>
+
+<section class="wrap"><div class="col stack">
+  <h2>Limitations</h2>
+  <ul>
+    <li>Failing Redis operations, not application crashes. Sim catches several and fails open with warnings.</li>
+    <li>Zero mismatches does not mean equal behaviour, because failed operations skip comparison.</li>
+    <li>Sim's extracted Lua and key builders run through the same client libraries, not Sim's whole application.</li>
+    <li>The reproductions inject a cluster client into Sim's unchanged methods.</li>
+    <li>The harness's classifier counts any Redis reply error as a Sim failure before it checks harness errors.</li>
+    <li>The harness repairs some failed writes with single-key commands so that later sites are exercised. Unrepaired
+    failures also suppress later comparisons involving the affected entities. <code>XREAD</code> blocking waits are omitted.
+    Timing, concurrency and pub/sub compatibility are not established.</li>
+    <li>One Redis version, one machine, one pinned commit.</li>
+  </ul>
+  <h3>Links</h3>
+  <ul>
+    <li><a href="https://github.com/simstudioai/sim/issues/9734">Sim issue #9734, Redis Cluster mode request</a></li>
+    <li><a href="https://github.com/simstudioai/sim/tree/edf5f0a47da8147466cb893c0a1666058331d42e">Sim at the pinned commit</a></li>
+    <li><a href="https://github.com/yashgix/crossslot">This repository</a></li>
+  </ul>
+  <p><button class="btn" type="button" data-view="overview">← Overview</button></p>
+</div></section>
+</main>
+
+<footer class="wrap"><div class="wide small muted">crossslot · Yash Gupta · <a href="https://github.com/yashgix/crossslot">github.com/yashgix/crossslot</a></div></footer>
+
+<script>
+const views = ["overview", "details"];
+function show(v) {
+  if (!views.includes(v)) v = "overview";
+  for (const x of views) {
+    const tab = document.getElementById("tab-" + x);
+    document.getElementById(x).hidden = x !== v;
+    tab.setAttribute("aria-selected", String(x === v));
+    tab.tabIndex = x === v ? 0 : -1;
+  }
+}
+function select(v, focus) {
+  history.replaceState(null, "", "#" + v);
+  show(v);
+  window.scrollTo(0, 0);
+  if (focus) document.getElementById("tab-" + v).focus();
+}
+document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => select(b.dataset.view, true)));
+document.querySelector('[role="tablist"]').addEventListener("keydown", (e) => {
+  const now = views.findIndex((x) => document.getElementById("tab-" + x).getAttribute("aria-selected") === "true");
+  const next = { ArrowRight: (now + 1) % views.length, ArrowLeft: (now + views.length - 1) % views.length, Home: 0, End: views.length - 1 }[e.key];
+  if (next === undefined) return;
+  e.preventDefault();
+  select(views[next], true);
+});
+addEventListener("hashchange", () => show(location.hash.slice(1)));
+show(location.hash.slice(1));
+</script>
+</body>
+</html>

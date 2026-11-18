@@ -1,0 +1,491 @@
+{
+  "schema": 1,
+  "redis": {
+    "reference": "8.10.3",
+    "target": "8.10.3",
+    "mode": "cluster"
+  },
+  "corpus": "data/patched",
+  "referenceCorpus": "data/sim",
+  "seeds": 20,
+  "opsPerSeed": 500,
+  "drivers": [
+    {
+      "name": "hosted-queue",
+      "siteIds": [
+        "apps/sim/lib/core/rate-limiter/hosted-key/queue.ts:100",
+        "apps/sim/lib/core/rate-limiter/hosted-key/queue.ts:140",
+        "apps/sim/lib/core/rate-limiter/hosted-key/queue.ts:168",
+        "apps/sim/lib/core/rate-limiter/hosted-key/queue.ts:190"
+      ],
+      "ops": 10000,
+      "failingSeeds": 0,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/sim/lib/core/rate-limiter/hosted-key/queue.ts:100",
+          "executed": 2301,
+          "failed": 0
+        },
+        {
+          "id": "apps/sim/lib/core/rate-limiter/hosted-key/queue.ts:140",
+          "executed": 4633,
+          "failed": 0
+        },
+        {
+          "id": "apps/sim/lib/core/rate-limiter/hosted-key/queue.ts:168",
+          "executed": 642,
+          "failed": 0
+        },
+        {
+          "id": "apps/sim/lib/core/rate-limiter/hosted-key/queue.ts:190",
+          "executed": 2172,
+          "failed": 0
+        }
+      ],
+      "errors": {},
+      "distinctEntities": 3619,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "ok",
+      "controls": false,
+      "first": null
+    },
+    {
+      "name": "realtime-rooms",
+      "siteIds": [
+        "apps/realtime/src/rooms/redis-manager.ts:267",
+        "apps/realtime/src/rooms/redis-manager.ts:271",
+        "apps/realtime/src/rooms/redis-manager.ts:311",
+        "apps/realtime/src/rooms/redis-manager.ts:326",
+        "apps/realtime/src/rooms/redis-manager.ts:428",
+        "apps/realtime/src/rooms/redis-manager.ts:450",
+        "apps/realtime/src/rooms/redis-manager.ts:474"
+      ],
+      "ops": 10000,
+      "failingSeeds": 0,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/realtime/src/rooms/redis-manager.ts:267",
+          "executed": 2752,
+          "failed": 0
+        },
+        {
+          "id": "apps/realtime/src/rooms/redis-manager.ts:271",
+          "executed": 2752,
+          "failed": 0
+        },
+        {
+          "id": "apps/realtime/src/rooms/redis-manager.ts:311",
+          "executed": 2726,
+          "failed": 0
+        },
+        {
+          "id": "apps/realtime/src/rooms/redis-manager.ts:326",
+          "executed": 2726,
+          "failed": 0
+        },
+        {
+          "id": "apps/realtime/src/rooms/redis-manager.ts:428",
+          "executed": 429,
+          "failed": 0
+        },
+        {
+          "id": "apps/realtime/src/rooms/redis-manager.ts:450",
+          "executed": 4093,
+          "failed": 0
+        },
+        {
+          "id": "apps/realtime/src/rooms/redis-manager.ts:474",
+          "executed": 4093,
+          "failed": 0
+        }
+      ],
+      "errors": {},
+      "distinctEntities": 4137,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "ok",
+      "controls": false,
+      "first": null
+    },
+    {
+      "name": "token-bucket",
+      "siteIds": [
+        "apps/sim/lib/core/rate-limiter/storage/redis-token-bucket.ts:144",
+        "apps/sim/lib/core/rate-limiter/storage/redis-token-bucket.ts:172",
+        "apps/sim/lib/core/rate-limiter/storage/redis-token-bucket.ts:195",
+        "apps/sim/lib/core/rate-limiter/storage/redis-token-bucket.ts:201"
+      ],
+      "ops": 10000,
+      "failingSeeds": 20,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/sim/lib/core/rate-limiter/storage/redis-token-bucket.ts:144",
+          "executed": 2500,
+          "failed": 0
+        },
+        {
+          "id": "apps/sim/lib/core/rate-limiter/storage/redis-token-bucket.ts:172",
+          "executed": 5000,
+          "failed": 5000
+        },
+        {
+          "id": "apps/sim/lib/core/rate-limiter/storage/redis-token-bucket.ts:195",
+          "executed": 902,
+          "failed": 0
+        },
+        {
+          "id": "apps/sim/lib/core/rate-limiter/storage/redis-token-bucket.ts:201",
+          "executed": 1368,
+          "failed": 0
+        }
+      ],
+      "errors": {
+        "CROSSSLOT": 5000
+      },
+      "distinctEntities": 2500,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "failing",
+      "controls": false,
+      "first": {
+        "seed": 1,
+        "op": 1,
+        "message": "CROSSSLOT Keys in request don't hash to the same slot"
+      }
+    },
+    {
+      "name": "approval-store",
+      "siteIds": [
+        "apps/sim/lib/cli-auth/approval-store.ts:160"
+      ],
+      "ops": 10000,
+      "failingSeeds": 0,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/sim/lib/cli-auth/approval-store.ts:160",
+          "executed": 2917,
+          "failed": 0
+        }
+      ],
+      "errors": {},
+      "distinctEntities": 2500,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "ok",
+      "controls": false,
+      "first": null
+    },
+    {
+      "name": "usage-segment-cache",
+      "siteIds": [],
+      "ops": 10000,
+      "failingSeeds": 0,
+      "referenceErrors": 0,
+      "sites": [],
+      "errors": {},
+      "distinctEntities": 3340,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "ok",
+      "controls": false,
+      "first": null
+    },
+    {
+      "name": "outbox-prune-cursors",
+      "siteIds": [],
+      "ops": 10000,
+      "failingSeeds": 0,
+      "referenceErrors": 0,
+      "sites": [],
+      "errors": {},
+      "distinctEntities": 26859,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [
+        "apps/sim/lib/core/outbox/retention.ts:138",
+        "apps/sim/lib/core/outbox/retention.ts:144"
+      ],
+      "status": "unverifiable",
+      "controls": false,
+      "first": null
+    },
+    {
+      "name": "stream-abort-locks",
+      "siteIds": [],
+      "ops": 10000,
+      "failingSeeds": 0,
+      "referenceErrors": 0,
+      "sites": [],
+      "errors": {},
+      "distinctEntities": 68437,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "ok",
+      "controls": false,
+      "first": null
+    },
+    {
+      "name": "slack-stream-sessions",
+      "siteIds": [
+        "apps/sim/lib/webhooks/slack-stream-sessions.ts:57",
+        "apps/sim/lib/webhooks/slack-stream-sessions.ts:70"
+      ],
+      "ops": 10000,
+      "failingSeeds": 0,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/sim/lib/webhooks/slack-stream-sessions.ts:57",
+          "executed": 5018,
+          "failed": 0
+        },
+        {
+          "id": "apps/sim/lib/webhooks/slack-stream-sessions.ts:70",
+          "executed": 4982,
+          "failed": 0
+        }
+      ],
+      "errors": {},
+      "distinctEntities": 6655,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "ok",
+      "controls": false,
+      "first": null
+    },
+    {
+      "name": "lock",
+      "siteIds": [
+        "apps/sim/lib/core/config/redis.ts:558",
+        "apps/sim/lib/core/config/redis.ts:581"
+      ],
+      "ops": 10000,
+      "failingSeeds": 0,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/sim/lib/core/config/redis.ts:558",
+          "executed": 5011,
+          "failed": 0
+        },
+        {
+          "id": "apps/sim/lib/core/config/redis.ts:581",
+          "executed": 2489,
+          "failed": 0
+        }
+      ],
+      "errors": {},
+      "distinctEntities": 2500,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "ok",
+      "controls": true,
+      "first": null
+    },
+    {
+      "name": "otp",
+      "siteIds": [
+        "apps/sim/lib/core/security/otp.ts:178",
+        "apps/sim/lib/core/security/otp.ts:244"
+      ],
+      "ops": 10000,
+      "failingSeeds": 0,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/sim/lib/core/security/otp.ts:178",
+          "executed": 10030,
+          "failed": 0
+        },
+        {
+          "id": "apps/sim/lib/core/security/otp.ts:244",
+          "executed": 5000,
+          "failed": 0
+        }
+      ],
+      "errors": {},
+      "distinctEntities": 2500,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "ok",
+      "controls": true,
+      "first": null
+    },
+    {
+      "name": "idempotency",
+      "siteIds": [
+        "apps/sim/lib/core/idempotency/service.ts:298",
+        "apps/sim/lib/core/idempotency/service.ts:474",
+        "apps/sim/lib/core/idempotency/service.ts:536",
+        "apps/sim/lib/core/idempotency/service.ts:545"
+      ],
+      "ops": 10000,
+      "failingSeeds": 0,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/sim/lib/core/idempotency/service.ts:298",
+          "executed": 3753,
+          "failed": 0
+        },
+        {
+          "id": "apps/sim/lib/core/idempotency/service.ts:474",
+          "executed": 1247,
+          "failed": 0
+        },
+        {
+          "id": "apps/sim/lib/core/idempotency/service.ts:536",
+          "executed": 3774,
+          "failed": 0
+        },
+        {
+          "id": "apps/sim/lib/core/idempotency/service.ts:545",
+          "executed": 1226,
+          "failed": 0
+        }
+      ],
+      "errors": {},
+      "distinctEntities": 2500,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "ok",
+      "controls": true,
+      "first": null
+    },
+    {
+      "name": "file-doc-store",
+      "siteIds": [
+        "apps/realtime/src/handlers/file-doc-store.ts:707",
+        "apps/realtime/src/handlers/file-doc-store.ts:537",
+        "apps/realtime/src/handlers/file-doc-store.ts:625",
+        "apps/realtime/src/handlers/file-doc-store.ts:487",
+        "apps/realtime/src/handlers/file-doc-store.ts:764",
+        "apps/realtime/src/handlers/file-doc-store.ts:835",
+        "apps/realtime/src/handlers/file-doc-store.ts:1079",
+        "apps/realtime/src/handlers/file-doc-store.ts:1303",
+        "apps/realtime/src/handlers/file-doc-store.ts:1335",
+        "apps/realtime/src/handlers/file-doc-store.ts:891"
+      ],
+      "ops": 10000,
+      "failingSeeds": 0,
+      "referenceErrors": 0,
+      "sites": [
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:707",
+          "executed": 2500,
+          "failed": 0
+        },
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:537",
+          "executed": 1503,
+          "failed": 0
+        },
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:625",
+          "executed": 748,
+          "failed": 0
+        },
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:487",
+          "executed": 692,
+          "failed": 0
+        },
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:764",
+          "executed": 747,
+          "failed": 0
+        },
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:835",
+          "executed": 799,
+          "failed": 0
+        },
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:1079",
+          "executed": 760,
+          "failed": 0
+        },
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:1303",
+          "executed": 813,
+          "failed": 0
+        },
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:1335",
+          "executed": 690,
+          "failed": 0
+        },
+        {
+          "id": "apps/realtime/src/handlers/file-doc-store.ts:891",
+          "executed": 748,
+          "failed": 0
+        }
+      ],
+      "errors": {},
+      "distinctEntities": 2500,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [],
+      "status": "ok",
+      "controls": false,
+      "first": null
+    },
+    {
+      "name": "file-doc-reader",
+      "siteIds": [],
+      "ops": 10000,
+      "failingSeeds": 0,
+      "referenceErrors": 0,
+      "sites": [],
+      "errors": {},
+      "distinctEntities": 2500,
+      "primariesCovered": 3,
+      "mismatches": 0,
+      "unverifiable": [
+        "apps/realtime/src/handlers/file-doc-store.ts:1198"
+      ],
+      "status": "unverifiable",
+      "controls": false,
+      "first": null
+    }
+  ],
+  "totals": {
+    "drivers": 13,
+    "failingDrivers": 1,
+    "unverifiableDrivers": 2,
+    "failingSites": 1,
+    "executedSites": 36,
+    "unexecutedSites": 0,
+    "ops": 130000,
+    "mismatches": 0,
+    "coverage": {
+      "resolvedErrorSites": 17,
+      "executedResolvedErrorSites": 1,
+      "ratio": 0.0588
+    }
+  },
+  "unverifiable": [
+    "apps/realtime/src/handlers/file-doc-store.ts:1198",
+    "apps/sim/lib/core/outbox/retention.ts:138",
+    "apps/sim/lib/core/outbox/retention.ts:144"
+  ],
+  "scanner": {
+    "falsePositives": [],
+    "falseNegatives": []
+  }
+}

@@ -1,0 +1,50 @@
+[
+  {
+    "claim": "Sim has an open issue asking for Redis Cluster support (AWS ElastiCache cluster mode).",
+    "quote": "[REQUEST] Support Redis Cluster mode (AWS ElastiCache cluster-mode-enabled)",
+    "url": "https://github.com/simstudioai/sim/issues/9734",
+    "read": "2026-11-16"
+  },
+  {
+    "claim": "The issue reporter says Sim builds a standalone client only.",
+    "quote": "Sim never constructs an ioredis `Cluster` — a standalone client is built from that one URL.",
+    "url": "https://github.com/simstudioai/sim/issues/9734",
+    "read": "2026-11-16"
+  },
+  {
+    "claim": "The issue says pub/sub paths matter as much as key/value paths on a cluster.",
+    "quote": "The pub/sub paths matter as much as the key/value ones here",
+    "url": "https://github.com/simstudioai/sim/issues/9734",
+    "read": "2026-11-16"
+  },
+  {
+    "claim": "Sim is licensed under Apache-2.0.",
+    "quote": "Version 2.0, January 2004",
+    "url": "https://raw.githubusercontent.com/simstudioai/sim/edf5f0a47da8147466cb893c0a1666058331d42e/LICENSE",
+    "read": "2026-11-16"
+  },
+  {
+    "claim": "Sim's web app builds a single ioredis client from one URL.",
+    "quote": "state.client = new Redis(redisUrl, {",
+    "url": "https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/sim/lib/core/config/redis.ts#L331",
+    "read": "2026-11-16"
+  },
+  {
+    "claim": "The hosted-key queue Lua script reads a heartbeat key that is not passed in KEYS.",
+    "quote": "if head and redis.call(\"exists\", ARGV[1] .. head) == 0 then",
+    "url": "https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/sim/lib/core/rate-limiter/hosted-key/queue.ts#L46",
+    "read": "2026-11-16"
+  },
+  {
+    "claim": "Sim's realtime server uses the node-redis client, a second Redis library besides ioredis.",
+    "quote": "import { createClient, type RedisClientType } from 'redis'",
+    "url": "https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/realtime/src/rooms/redis-manager.ts#L8",
+    "read": "2026-11-16"
+  },
+  {
+    "claim": "Sim's usage segment cache reads many keys with one MGET.",
+    "quote": "return await redis.mget(...keys)",
+    "url": "https://github.com/simstudioai/sim/blob/edf5f0a47da8147466cb893c0a1666058331d42e/apps/sim/lib/billing/core/usage-segment-cache.ts#L54",
+    "read": "2026-11-16"
+  }
+]

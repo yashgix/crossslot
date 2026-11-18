@@ -1,0 +1,7 @@
+dist
+data
+acceptance
+patch
+package-lock.json
+docs
+results

@@ -1,0 +1,6 @@
+node_modules/
+dist/
+data/sim/
+data/patched/
+.env
+results/*.tmp

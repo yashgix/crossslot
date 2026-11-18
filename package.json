@@ -1,0 +1,40 @@
+{
+  "name": "crossslot",
+  "version": "0.1.0",
+  "description": "Redis Cluster safety audit and differential harness",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "bin": {
+    "crossslot": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "cluster:up": "node dist/cli.js cluster up",
+    "cluster:down": "node dist/cli.js cluster down",
+    "test": "vitest run",
+    "acceptance": "vitest run --config acceptance/vitest.config.ts",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "repro:token-bucket": "node --experimental-transform-types --no-warnings --import ./repro/register.ts repro/token-bucket.ts",
+    "repro:hosted-queue": "node --experimental-transform-types --no-warnings --import ./repro/register.ts repro/hosted-queue.ts",
+    "repro:realtime-rooms": "node --experimental-transform-types --no-warnings --import ./repro/register.ts repro/realtime-rooms.ts",
+    "repro": "npm run repro:token-bucket --silent && npm run repro:hosted-queue --silent && npm run repro:realtime-rooms --silent"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "22.20.5",
+    "eslint": "10.15.0",
+    "prettier": "3.10.1",
+    "typescript-eslint": "8.73.0",
+    "vitest": "5.1.0"
+  },
+  "dependencies": {
+    "ioredis": "5.11.1",
+    "redis": "5.10.0",
+    "typescript": "5.9.3"
+  }
+}

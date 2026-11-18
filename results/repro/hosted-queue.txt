@@ -1,0 +1,66 @@
+##### run 1 (2026-11-17 19:06:29 EST) npm run repro:hosted-queue
+== hosted-key queue: HostedKeyQueue.enqueue / checkHead / refreshHeartbeat / dequeue
+Sim edf5f0a47da8147466cb893c0a1666058331d42e
+  queue.ts:98 enqueue, :138 checkHead, :166 refreshHeartbeat, :188 dequeue
+  Sim's real module. Stubbed, none touching Redis: @sim/logger (prints warn lines),
+    @sim/utils/errors (toError), and @/lib/core/config/redis (getRedisClient returns the test client)
+  keys, hash slots (CLUSTER KEYSLOT) and the primary that owns each slot:
+    slot   485  127.0.0.1:7001  hosted-queue:exa:ws_8c1f2a
+    slot  8077  127.0.0.1:7002  hosted-queue-tkt:exa:ws_8c1f2a:tkt_a1
+    slot 15037  127.0.0.1:7003  hosted-queue-tkt:exa:ws_8c1f2a:tkt_b2
+PASS  standalone Redis 7100: enqueue {"position":0,"enabled":true}, checkHead "head", no warnings
+    [sim logger.warn] HostedKeyQueue: Queue enqueue failed for hosted-queue:exa:ws_8c1f2a {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+    [sim logger.warn] HostedKeyQueue: Queue enqueue failed for hosted-queue:exa:ws_8c1f2a {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+    [sim logger.warn] HostedKeyQueue: Queue checkHead failed for hosted-queue:exa:ws_8c1f2a {"error":"ERR Script attempted to access a non local key in a cluster node script: fdd8da0b6487493ec3b45e64acda1b29cd0e1ed9, on @user_script:3."}
+    [sim logger.warn] HostedKeyQueue: Queue heartbeat refresh failed for hosted-queue-tkt:exa:ws_8c1f2a:tkt_a1 {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+    [sim logger.warn] HostedKeyQueue: Queue dequeue failed for hosted-queue:exa:ws_8c1f2a {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+PASS  cluster enqueue (:98): HostedKeyQueue: Queue enqueue failed for hosted-queue:exa:ws_8c1f2a {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+PASS  cluster checkHead (:138, seeded): HostedKeyQueue: Queue checkHead failed for hosted-queue:exa:ws_8c1f2a {"error":"ERR Script attempted to access a non local key in a cluster node script: fdd8da0b6487493ec3b45e64acda1b29cd0e1ed9, on @user_script:3."}
+PASS  cluster refreshHeartbeat (:166): HostedKeyQueue: Queue heartbeat refresh failed for hosted-queue-tkt:exa:ws_8c1f2a:tkt_a1 {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+PASS  cluster dequeue (:188): HostedKeyQueue: Queue dequeue failed for hosted-queue:exa:ws_8c1f2a {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+exit 0
+
+##### run 2 (2026-11-17 19:06:30 EST) npm run repro:hosted-queue
+== hosted-key queue: HostedKeyQueue.enqueue / checkHead / refreshHeartbeat / dequeue
+Sim edf5f0a47da8147466cb893c0a1666058331d42e
+  queue.ts:98 enqueue, :138 checkHead, :166 refreshHeartbeat, :188 dequeue
+  Sim's real module. Stubbed, none touching Redis: @sim/logger (prints warn lines),
+    @sim/utils/errors (toError), and @/lib/core/config/redis (getRedisClient returns the test client)
+  keys, hash slots (CLUSTER KEYSLOT) and the primary that owns each slot:
+    slot   485  127.0.0.1:7001  hosted-queue:exa:ws_8c1f2a
+    slot  8077  127.0.0.1:7002  hosted-queue-tkt:exa:ws_8c1f2a:tkt_a1
+    slot 15037  127.0.0.1:7003  hosted-queue-tkt:exa:ws_8c1f2a:tkt_b2
+PASS  standalone Redis 7100: enqueue {"position":0,"enabled":true}, checkHead "head", no warnings
+    [sim logger.warn] HostedKeyQueue: Queue enqueue failed for hosted-queue:exa:ws_8c1f2a {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+    [sim logger.warn] HostedKeyQueue: Queue enqueue failed for hosted-queue:exa:ws_8c1f2a {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+    [sim logger.warn] HostedKeyQueue: Queue checkHead failed for hosted-queue:exa:ws_8c1f2a {"error":"ERR Script attempted to access a non local key in a cluster node script: fdd8da0b6487493ec3b45e64acda1b29cd0e1ed9, on @user_script:3."}
+    [sim logger.warn] HostedKeyQueue: Queue heartbeat refresh failed for hosted-queue-tkt:exa:ws_8c1f2a:tkt_a1 {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+    [sim logger.warn] HostedKeyQueue: Queue dequeue failed for hosted-queue:exa:ws_8c1f2a {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+PASS  cluster enqueue (:98): HostedKeyQueue: Queue enqueue failed for hosted-queue:exa:ws_8c1f2a {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+PASS  cluster checkHead (:138, seeded): HostedKeyQueue: Queue checkHead failed for hosted-queue:exa:ws_8c1f2a {"error":"ERR Script attempted to access a non local key in a cluster node script: fdd8da0b6487493ec3b45e64acda1b29cd0e1ed9, on @user_script:3."}
+PASS  cluster refreshHeartbeat (:166): HostedKeyQueue: Queue heartbeat refresh failed for hosted-queue-tkt:exa:ws_8c1f2a:tkt_a1 {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+PASS  cluster dequeue (:188): HostedKeyQueue: Queue dequeue failed for hosted-queue:exa:ws_8c1f2a {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+exit 0
+
+##### run 3 (2026-11-17 19:06:30 EST) npm run repro:hosted-queue
+== hosted-key queue: HostedKeyQueue.enqueue / checkHead / refreshHeartbeat / dequeue
+Sim edf5f0a47da8147466cb893c0a1666058331d42e
+  queue.ts:98 enqueue, :138 checkHead, :166 refreshHeartbeat, :188 dequeue
+  Sim's real module. Stubbed, none touching Redis: @sim/logger (prints warn lines),
+    @sim/utils/errors (toError), and @/lib/core/config/redis (getRedisClient returns the test client)
+  keys, hash slots (CLUSTER KEYSLOT) and the primary that owns each slot:
+    slot   485  127.0.0.1:7001  hosted-queue:exa:ws_8c1f2a
+    slot  8077  127.0.0.1:7002  hosted-queue-tkt:exa:ws_8c1f2a:tkt_a1
+    slot 15037  127.0.0.1:7003  hosted-queue-tkt:exa:ws_8c1f2a:tkt_b2
+PASS  standalone Redis 7100: enqueue {"position":0,"enabled":true}, checkHead "head", no warnings
+    [sim logger.warn] HostedKeyQueue: Queue enqueue failed for hosted-queue:exa:ws_8c1f2a {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+    [sim logger.warn] HostedKeyQueue: Queue enqueue failed for hosted-queue:exa:ws_8c1f2a {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+    [sim logger.warn] HostedKeyQueue: Queue checkHead failed for hosted-queue:exa:ws_8c1f2a {"error":"ERR Script attempted to access a non local key in a cluster node script: fdd8da0b6487493ec3b45e64acda1b29cd0e1ed9, on @user_script:3."}
+    [sim logger.warn] HostedKeyQueue: Queue heartbeat refresh failed for hosted-queue-tkt:exa:ws_8c1f2a:tkt_a1 {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+    [sim logger.warn] HostedKeyQueue: Queue dequeue failed for hosted-queue:exa:ws_8c1f2a {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+PASS  cluster enqueue (:98): HostedKeyQueue: Queue enqueue failed for hosted-queue:exa:ws_8c1f2a {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+PASS  cluster checkHead (:138, seeded): HostedKeyQueue: Queue checkHead failed for hosted-queue:exa:ws_8c1f2a {"error":"ERR Script attempted to access a non local key in a cluster node script: fdd8da0b6487493ec3b45e64acda1b29cd0e1ed9, on @user_script:3."}
+PASS  cluster refreshHeartbeat (:166): HostedKeyQueue: Queue heartbeat refresh failed for hosted-queue-tkt:exa:ws_8c1f2a:tkt_a1 {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+PASS  cluster dequeue (:188): HostedKeyQueue: Queue dequeue failed for hosted-queue:exa:ws_8c1f2a {"error":"All keys in the pipeline should belong to the same slots allocation group"}
+exit 0
+

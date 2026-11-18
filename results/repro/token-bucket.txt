@@ -1,0 +1,42 @@
+##### run 1 (2026-11-17 19:06:28 EST) npm run repro:token-bucket
+== token bucket: RedisTokenBucket.consumeTokensAtomically
+Sim edf5f0a47da8147466cb893c0a1666058331d42e
+  redis-token-bucket.ts:166-187 (one EVAL over 4 keys), the real Sim class, no stubs
+  keys built as provider-admission.ts:104-156 and prefixed at redis-token-bucket.ts:172-175
+  keys, hash slots (CLUSTER KEYSLOT) and the primary that owns each slot:
+    slot  7116  127.0.0.1:7002  ratelimit:tb:provider:embedding:openai:3f9a1c2b7d40:cooldown
+    slot  6932  127.0.0.1:7002  ratelimit:tb:provider:embedding:openai:3f9a1c2b7d40:quota
+    slot  5831  127.0.0.1:7002  ratelimit:tb:provider:embedding:openai:3f9a1c2b7d40:tokens
+    slot 12957  127.0.0.1:7003  ratelimit:tb:provider:embedding:openai:3f9a1c2b7d40:requests
+PASS  standalone Redis 7100: allowed {"allowed":true,"retryAfterMs":0}
+PASS  cluster 7001-7006: ReplyError: CROSSSLOT Keys in request don't hash to the same slot
+exit 0
+
+##### run 2 (2026-11-17 19:06:29 EST) npm run repro:token-bucket
+== token bucket: RedisTokenBucket.consumeTokensAtomically
+Sim edf5f0a47da8147466cb893c0a1666058331d42e
+  redis-token-bucket.ts:166-187 (one EVAL over 4 keys), the real Sim class, no stubs
+  keys built as provider-admission.ts:104-156 and prefixed at redis-token-bucket.ts:172-175
+  keys, hash slots (CLUSTER KEYSLOT) and the primary that owns each slot:
+    slot  7116  127.0.0.1:7002  ratelimit:tb:provider:embedding:openai:3f9a1c2b7d40:cooldown
+    slot  6932  127.0.0.1:7002  ratelimit:tb:provider:embedding:openai:3f9a1c2b7d40:quota
+    slot  5831  127.0.0.1:7002  ratelimit:tb:provider:embedding:openai:3f9a1c2b7d40:tokens
+    slot 12957  127.0.0.1:7003  ratelimit:tb:provider:embedding:openai:3f9a1c2b7d40:requests
+PASS  standalone Redis 7100: allowed {"allowed":true,"retryAfterMs":0}
+PASS  cluster 7001-7006: ReplyError: CROSSSLOT Keys in request don't hash to the same slot
+exit 0
+
+##### run 3 (2026-11-17 19:06:29 EST) npm run repro:token-bucket
+== token bucket: RedisTokenBucket.consumeTokensAtomically
+Sim edf5f0a47da8147466cb893c0a1666058331d42e
+  redis-token-bucket.ts:166-187 (one EVAL over 4 keys), the real Sim class, no stubs
+  keys built as provider-admission.ts:104-156 and prefixed at redis-token-bucket.ts:172-175
+  keys, hash slots (CLUSTER KEYSLOT) and the primary that owns each slot:
+    slot  7116  127.0.0.1:7002  ratelimit:tb:provider:embedding:openai:3f9a1c2b7d40:cooldown
+    slot  6932  127.0.0.1:7002  ratelimit:tb:provider:embedding:openai:3f9a1c2b7d40:quota
+    slot  5831  127.0.0.1:7002  ratelimit:tb:provider:embedding:openai:3f9a1c2b7d40:tokens
+    slot 12957  127.0.0.1:7003  ratelimit:tb:provider:embedding:openai:3f9a1c2b7d40:requests
+PASS  standalone Redis 7100: allowed {"allowed":true,"retryAfterMs":0}
+PASS  cluster 7001-7006: ReplyError: CROSSSLOT Keys in request don't hash to the same slot
+exit 0
+

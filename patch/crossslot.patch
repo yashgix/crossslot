@@ -1,0 +1,691 @@
+diff -ru a/apps/realtime/src/handlers/file-doc-store.ts b/apps/realtime/src/handlers/file-doc-store.ts
+--- a/apps/realtime/src/handlers/file-doc-store.ts	2026-11-16 14:36:46
++++ b/apps/realtime/src/handlers/file-doc-store.ts	2026-11-16 16:18:01
+@@ -184,8 +184,6 @@
+ const IDLE_POLL_MS = 250
+ /** Max entries drained per stream per read, bounding one Redis response even for maximum-size edits. */
+ const READ_COUNT = 1
+-/** Maximum streams passed to one XREAD, bounding response memory independently of open-room count. */
+-const READ_STREAM_BATCH_SIZE = 4
+ /** Replay streams incrementally instead of materializing their complete history in one response. */
+ const REPLAY_PAGE_COUNT = 4
+ /** Compaction normally holds a stream near 400 entries; fail safely if that invariant is badly broken. */
+@@ -226,13 +224,14 @@
+ const READER_ERROR_LOG_EVERY = 20
+ const CLIENT_UPDATE_DEDUPE_CAPACITY = 16_384
+ 
+-const streamKey = (name: string) => `${STREAM_PREFIX}${name}`
+-const generationKey = (name: string) => `${GENERATION_PREFIX}${name}`
++/** Every key of one document carries the `{name}` hash tag, so they share a slot on Redis Cluster. */
++const streamKey = (name: string) => `${STREAM_PREFIX}{${name}}`
++const generationKey = (name: string) => `${GENERATION_PREFIX}{${name}}`
+ const documentKeys = (name: string) => [
+   streamKey(name),
+   generationKey(name),
+-  `${SYNC_VERSION_PREFIX}${name}`,
+-  `${INVALIDATION_VERSION_PREFIX}${name}`,
++  `${SYNC_VERSION_PREFIX}{${name}}`,
++  `${INVALIDATION_VERSION_PREFIX}{${name}}`,
+ ]
+ 
+ export class FileDocInvalidatedError extends Error {
+@@ -626,9 +625,9 @@
+         const appended = await this.write.eval(APPEND_CLIENT_UPDATE_SCRIPT, {
+           keys: [
+             streamKey(name),
+-            `${CLIENT_UPDATE_PREFIX}${name}`,
++            `${CLIENT_UPDATE_PREFIX}{${name}}`,
+             generationKey(name),
+-            `${INVALIDATION_VERSION_PREFIX}${name}`,
++            `${INVALIDATION_VERSION_PREFIX}{${name}}`,
+           ],
+           arguments: [
+             dedupeMember,
+@@ -766,10 +765,10 @@
+       keys: [
+         streamKey(name),
+         generationKey(name),
+-        `${SYNC_VERSION_PREFIX}${name}`,
+-        `${CLIENT_UPDATE_PREFIX}${name}`,
+-        `${AGENT_STREAM_PREFIX}${name}`,
+-        `${INVALIDATION_VERSION_PREFIX}${name}`,
++        `${SYNC_VERSION_PREFIX}{${name}}`,
++        `${CLIENT_UPDATE_PREFIX}{${name}}`,
++        `${AGENT_STREAM_PREFIX}{${name}}`,
++        `${INVALIDATION_VERSION_PREFIX}{${name}}`,
+       ],
+       arguments: [String(version), String(STREAM_TTL_SEC), INVALIDATED_GENERATION],
+     })
+@@ -837,10 +836,10 @@
+       keys: [
+         streamKey(name),
+         generationKey(name),
+-        `${SYNC_VERSION_PREFIX}${name}`,
+-        `${CLIENT_UPDATE_PREFIX}${name}`,
+-        `${AGENT_STREAM_PREFIX}${name}`,
+-        `${INVALIDATION_VERSION_PREFIX}${name}`,
++        `${SYNC_VERSION_PREFIX}{${name}}`,
++        `${CLIENT_UPDATE_PREFIX}{${name}}`,
++        `${AGENT_STREAM_PREFIX}{${name}}`,
++        `${INVALIDATION_VERSION_PREFIX}{${name}}`,
+       ],
+       arguments: [retiredDocId, replacementDocId, String(STREAM_TTL_SEC)],
+     })
+@@ -1050,7 +1049,7 @@
+   async getSyncedVersion(name: string): Promise<number | null> {
+     if (!this.enabled || !this.write) return null
+     try {
+-      const value = await this.write.get(`${SYNC_VERSION_PREFIX}${name}`)
++      const value = await this.write.get(`${SYNC_VERSION_PREFIX}{${name}}`)
+       const parsed = value === null ? Number.NaN : Number(value)
+       return Number.isFinite(parsed) ? parsed : null
+     } catch (error) {
+@@ -1078,7 +1077,7 @@
+     for (let attempt = 0; attempt <= PUBLISH_MAX_RETRIES; attempt++) {
+       try {
+         await this.write.eval(SET_VERSION_IF_NEWER_SCRIPT, {
+-          keys: [`${SYNC_VERSION_PREFIX}${name}`, generationKey(name)],
++          keys: [`${SYNC_VERSION_PREFIX}{${name}}`, generationKey(name)],
+           arguments: [String(version), String(STREAM_TTL_SEC), expectedGeneration],
+         })
+         return
+@@ -1099,7 +1098,7 @@
+   async markAgentStreaming(name: string, ttlMs: number): Promise<void> {
+     if (!this.enabled || !this.write) return
+     try {
+-      await this.write.set(`${AGENT_STREAM_PREFIX}${name}`, '1', { PX: ttlMs })
++      await this.write.set(`${AGENT_STREAM_PREFIX}{${name}}`, '1', { PX: ttlMs })
+     } catch (error) {
+       logger.warn(`FileDocStore markAgentStreaming failed for ${name}`, {
+         error: getErrorMessage(error),
+@@ -1113,7 +1112,7 @@
+   async isAgentStreaming(name: string): Promise<boolean> {
+     if (!this.enabled || !this.write) return false
+     try {
+-      return (await this.write.exists(`${AGENT_STREAM_PREFIX}${name}`)) === 1
++      return (await this.write.exists(`${AGENT_STREAM_PREFIX}{${name}}`)) === 1
+     } catch (error) {
+       logger.warn(`FileDocStore isAgentStreaming failed for ${name}`, {
+         error: getErrorMessage(error),
+@@ -1185,8 +1184,9 @@
+    */
+   private async runReader(): Promise<void> {
+     let failures = 0
+-    let blockingBatchIndex = 0
++    let blockingIndex = 0
+     while (this.running && this.read) {
++      const read = this.read
+       const snapshot = new Map(this.rooms)
+       if (snapshot.size === 0) {
+         await sleep(IDLE_POLL_MS)
+@@ -1194,14 +1194,12 @@
+       }
+       try {
+         const rooms = [...snapshot]
+-        const batches: Array<typeof rooms> = []
+-        for (let index = 0; index < rooms.length; index += READ_STREAM_BATCH_SIZE) {
+-          batches.push(rooms.slice(index, index + READ_STREAM_BATCH_SIZE))
+-        }
++        const readOne = (name: string, room: StoreRoom, options: { BLOCK?: number; COUNT: number }) =>
++          read.xRead([{ key: streamKey(name), id: room.lastId }], options)
+         const applyResults = (results: Awaited<ReturnType<RedisClientType['xRead']>>): boolean => {
+           if (!results) return false
+           for (const stream of results) {
+-            const name = stream.name.slice(STREAM_PREFIX.length)
++            const name = stream.name.slice(STREAM_PREFIX.length + 1, -1)
+             const room = this.rooms.get(name)
+             if (!room || room !== snapshot.get(name)) continue
+             for (const entry of stream.messages)
+@@ -1210,21 +1208,13 @@
+           return true
+         }
+         let received = false
+-        for (const batch of batches) {
+-          const streams = batch.map(([name, room]) => ({
+-            key: streamKey(name),
+-            id: room.lastId,
+-          }))
+-          received = applyResults(await this.read.xRead(streams, { COUNT: READ_COUNT })) || received
++        for (const [name, room] of rooms) {
++          received = applyResults(await readOne(name, room, { COUNT: READ_COUNT })) || received
+         }
+         if (!received) {
+-          const batch = batches[blockingBatchIndex % batches.length]
+-          blockingBatchIndex = (blockingBatchIndex + 1) % batches.length
+-          const streams = batch.map(([name, room]) => ({
+-            key: streamKey(name),
+-            id: room.lastId,
+-          }))
+-          applyResults(await this.read.xRead(streams, { BLOCK: READ_BLOCK_MS, COUNT: READ_COUNT }))
++          const [name, room] = rooms[blockingIndex % rooms.length] as [string, StoreRoom]
++          blockingIndex = (blockingIndex + 1) % rooms.length
++          applyResults(await readOne(name, room, { BLOCK: READ_BLOCK_MS, COUNT: READ_COUNT }))
+         }
+         failures = 0
+       } catch (error) {
+diff -ru a/apps/realtime/src/rooms/redis-manager.ts b/apps/realtime/src/rooms/redis-manager.ts
+--- a/apps/realtime/src/rooms/redis-manager.ts	2026-11-16 14:36:46
++++ b/apps/realtime/src/rooms/redis-manager.ts	2026-11-16 16:18:01
+@@ -14,19 +14,20 @@
+ 
+ /**
+  * Redis key scheme (all room-scoped keys are prefixed by room type):
+- *   {type}:{id}:users        HASH  socketId -> UserPresence JSON  (room membership)
+- *   {type}:{id}:meta         HASH  room metadata (lastModified)
+- *   socket:{sid}:rooms       HASH  roomType -> roomId  (the socket's rooms, one per type)
+- *   socket:{sid}:session     HASH  userId/userName/avatarUrl  (shared across the socket's rooms)
++ *   {type}:{{id}}:users      HASH  socketId -> UserPresence JSON  (room membership)
++ *   {type}:{{id}}:meta       HASH  room metadata (lastModified)
++ *   socket:{{sid}}:rooms     HASH  roomType -> roomId  (the socket's rooms, one per type)
++ *   socket:{{sid}}:session   HASH  userId/userName/avatarUrl  (shared across the socket's rooms)
+  *
+- * Workflow rooms keep their historical `workflow:{id}:users`/`:meta` keys (the
+- * type prefix IS `workflow`), so no presence-state migration is needed for them.
++ * The inner braces are Redis hash tags: a room's keys share one slot and a socket's keys share
++ * another, so Redis Cluster can run a multi-key command on either group. The two groups cannot
++ * share a slot, so every operation that touches both is split in two (see the scripts below).
+  */
+ const KEYS = {
+-  roomUsers: (room: RoomRef) => `${room.type}:${room.id}:users`,
+-  roomMeta: (room: RoomRef) => `${room.type}:${room.id}:meta`,
+-  socketRooms: (socketId: string) => `socket:${socketId}:rooms`,
+-  socketSession: (socketId: string) => `socket:${socketId}:session`,
++  roomUsers: (room: RoomRef) => `${room.type}:{${room.id}}:users`,
++  roomMeta: (room: RoomRef) => `${room.type}:{${room.id}}:meta`,
++  socketRooms: (socketId: string) => `socket:{${socketId}}:rooms`,
++  socketSession: (socketId: string) => `socket:{${socketId}}:session`,
+ } as const
+ 
+ /** TTL for the socket's room-set. Long enough that an idle-but-connected socket is not evicted. */
+@@ -42,62 +43,58 @@
+ const SESSION_TTL = SOCKET_ROOMS_TTL
+ 
+ /**
+- * Atomic single-room removal. Removes a socket from one room's presence, drops
+- * the room from the socket's room-set, and — critically — deletes the SHARED
+- * session key only when the socket has left its LAST room (otherwise a leave from
+- * one room would break the socket's other rooms). Cleans up empty room state.
++ * Single-room removal, in two scripts because the room and the socket sit in different slots on
++ * Redis Cluster. Each half is atomic, the pair is not: a crash between them leaves the socket's
++ * room-set pointing at a room whose roster no longer lists it, until the 24h key TTL.
++ * The room half runs first so a crash never leaves a ghost in the roster other users see.
+  *
+- * KEYS: [socketRooms, socketSession, roomUsers, roomMeta]
+- * ARGV: [roomType, socketId, roomId]
++ * Room half. Removes the socket from the room's presence and cleans up an empty room.
++ * KEYS: [roomUsers, roomMeta]
++ * ARGV: [socketId]
+  * Returns 1 if the socket was a member of the room, else 0.
+  */
+-const REMOVE_ROOM_SCRIPT = `
+-local socketRoomsKey = KEYS[1]
+-local socketSessionKey = KEYS[2]
+-local roomUsersKey = KEYS[3]
+-local roomMetaKey = KEYS[4]
+-local roomType = ARGV[1]
+-local socketId = ARGV[2]
+-local roomId = ARGV[3]
++const REMOVE_FROM_ROOM_SCRIPT = `
++local removed = redis.call('HDEL', KEYS[1], ARGV[1])
++if redis.call('HLEN', KEYS[1]) == 0 then
++  redis.call('DEL', KEYS[1], KEYS[2])
++end
++return removed
++`
+ 
+-local removed = redis.call('HDEL', roomUsersKey, socketId)
+-
+--- Only drop the socket's mapping for this type if it points at THIS room, so
+--- removing a room the socket isn't in can't wipe a different room's mapping or
+--- spuriously trigger the last-room session cleanup (mirrors the memory manager).
+-if redis.call('HGET', socketRoomsKey, roomType) == roomId then
+-  redis.call('HDEL', socketRoomsKey, roomType)
+-  if redis.call('HLEN', socketRoomsKey) == 0 then
+-    redis.call('DEL', socketRoomsKey, socketSessionKey)
++/**
++ * Socket half. Drops the room from the socket's room-set and — critically — deletes the SHARED
++ * session key only when the socket has left its LAST room (otherwise a leave from one room would
++ * break the socket's other rooms). It only drops the mapping for this type if it points at THIS
++ * room, so removing a room the socket isn't in can't wipe a different room's mapping.
++ *
++ * KEYS: [socketRooms, socketSession]
++ * ARGV: [roomType, roomId]
++ */
++const REMOVE_ROOM_FROM_SOCKET_SCRIPT = `
++if redis.call('HGET', KEYS[1], ARGV[1]) == ARGV[2] then
++  redis.call('HDEL', KEYS[1], ARGV[1])
++  if redis.call('HLEN', KEYS[1]) == 0 then
++    redis.call('DEL', KEYS[1], KEYS[2])
+   end
+ end
+-
+-if redis.call('HLEN', roomUsersKey) == 0 then
+-  redis.call('DEL', roomUsersKey, roomMetaKey)
+-end
+-
+-return removed
++return 1
+ `
+ 
+ /**
+- * Atomic presence-activity update (read-modify-write) that also refreshes the
+- * socket key TTLs to keep a long-lived session alive.
++ * Atomic presence-activity update (read-modify-write) on the room's roster. The socket's key TTLs
++ * are refreshed by a second script, because those keys live in another slot on Redis Cluster.
+  *
+- * KEYS: [roomUsers, socketRooms, socketSession]
+- * ARGV: [socketId, cursorJson, selectionJson, lastActivity, roomsTtl, sessionTtl, cellJson]
++ * KEYS: [roomUsers]
++ * ARGV: [socketId, cursorJson, selectionJson, lastActivity, cellJson]
+  * Returns 1 if the socket had presence in the room, else 0.
+  */
+ const UPDATE_ACTIVITY_SCRIPT = `
+ local roomUsersKey = KEYS[1]
+-local socketRoomsKey = KEYS[2]
+-local socketSessionKey = KEYS[3]
+ local socketId = ARGV[1]
+ local cursorJson = ARGV[2]
+ local selectionJson = ARGV[3]
+ local lastActivity = ARGV[4]
+-local roomsTtl = tonumber(ARGV[5])
+-local sessionTtl = tonumber(ARGV[6])
+-local cellJson = ARGV[7]
++local cellJson = ARGV[5]
+ 
+ local existingJson = redis.call('HGET', roomUsersKey, socketId)
+ if not existingJson then
+@@ -117,12 +114,22 @@
+ existing.lastActivity = tonumber(lastActivity)
+ 
+ redis.call('HSET', roomUsersKey, socketId, cjson.encode(existing))
+-redis.call('EXPIRE', socketRoomsKey, roomsTtl)
+-redis.call('EXPIRE', socketSessionKey, sessionTtl)
+ return 1
+ `
+ 
+ /**
++ * Refreshes the socket's key TTLs to keep a long-lived session alive.
++ *
++ * KEYS: [socketRooms, socketSession]
++ * ARGV: [roomsTtl, sessionTtl]
++ */
++const REFRESH_SOCKET_TTL_SCRIPT = `
++redis.call('EXPIRE', KEYS[1], tonumber(ARGV[1]))
++redis.call('EXPIRE', KEYS[2], tonumber(ARGV[2]))
++return 1
++`
++
++/**
+  * Ceiling on a single presence field, measured in the UTF-8 bytes Redis actually stores
+  * rather than UTF-16 code units, so a multi-byte payload can't pass a character-based check
+  * and still land several times larger in the room hash.
+@@ -157,6 +164,10 @@
+   return serialized
+ }
+ 
++function isNoScript(error: unknown): boolean {
++  return (error as Error).message?.includes('NOSCRIPT') === true
++}
++
+ /**
+  * Redis-backed room manager for multi-pod deployments. Domain-neutral: keyed by
+  * {@link RoomRef}, supports a socket in multiple rooms (one per {@link RoomType}).
+@@ -166,8 +177,10 @@
+   private redis: RedisClientType
+   private _io: Server
+   private isConnected = false
+-  private removeRoomScriptSha: string | null = null
++  private removeFromRoomScriptSha: string | null = null
++  private removeFromSocketScriptSha: string | null = null
+   private updateActivityScriptSha: string | null = null
++  private refreshSocketScriptSha: string | null = null
+ 
+   constructor(io: Server, redisUrl: string) {
+     this._io = io
+@@ -201,7 +214,11 @@
+     // `updateUserActivity` would silently no-op on a null SHA. Reporting not-ready here makes the
+     // POST endpoints return a retryable 503 during that startup window instead.
+     return (
+-      this.isConnected && this.removeRoomScriptSha !== null && this.updateActivityScriptSha !== null
++      this.isConnected &&
++      this.removeFromRoomScriptSha !== null &&
++      this.removeFromSocketScriptSha !== null &&
++      this.updateActivityScriptSha !== null &&
++      this.refreshSocketScriptSha !== null
+     )
+   }
+ 
+@@ -211,8 +228,7 @@
+     try {
+       await this.redis.connect()
+ 
+-      this.removeRoomScriptSha = await this.redis.scriptLoad(REMOVE_ROOM_SCRIPT)
+-      this.updateActivityScriptSha = await this.redis.scriptLoad(UPDATE_ACTIVITY_SCRIPT)
++      await this.loadScripts()
+ 
+       // Mark ready only after the scripts load — isReady() gates removeUserFromRoom/updateUserActivity,
+       // which silently no-op without a script SHA. Setting the flag before scriptLoad would make
+@@ -227,6 +243,13 @@
+     }
+   }
+ 
++  private async loadScripts(): Promise<void> {
++    this.removeFromRoomScriptSha = await this.redis.scriptLoad(REMOVE_FROM_ROOM_SCRIPT)
++    this.removeFromSocketScriptSha = await this.redis.scriptLoad(REMOVE_ROOM_FROM_SOCKET_SCRIPT)
++    this.updateActivityScriptSha = await this.redis.scriptLoad(UPDATE_ACTIVITY_SCRIPT)
++    this.refreshSocketScriptSha = await this.redis.scriptLoad(REFRESH_SOCKET_TTL_SCRIPT)
++  }
++
+   async shutdown(): Promise<void> {
+     if (!this.isConnected) return
+     try {
+@@ -240,20 +263,22 @@
+ 
+   async addUserToRoom(room: RoomRef, socketId: string, presence: UserPresence): Promise<void> {
+     try {
+-      const pipeline = this.redis.multi()
++      // Two transactions: the room's keys and the socket's keys sit in different slots.
++      const roomTx = this.redis.multi()
++      roomTx.hSet(KEYS.roomUsers(room), socketId, JSON.stringify(presence))
++      roomTx.hSet(KEYS.roomMeta(room), 'lastModified', Date.now().toString())
+ 
+-      pipeline.hSet(KEYS.roomUsers(room), socketId, JSON.stringify(presence))
+-      pipeline.hSet(KEYS.roomMeta(room), 'lastModified', Date.now().toString())
+-      pipeline.hSet(KEYS.socketRooms(socketId), room.type, room.id)
+-      pipeline.expire(KEYS.socketRooms(socketId), SOCKET_ROOMS_TTL)
+-      pipeline.hSet(KEYS.socketSession(socketId), {
++      const socketTx = this.redis.multi()
++      socketTx.hSet(KEYS.socketRooms(socketId), room.type, room.id)
++      socketTx.expire(KEYS.socketRooms(socketId), SOCKET_ROOMS_TTL)
++      socketTx.hSet(KEYS.socketSession(socketId), {
+         userId: presence.userId,
+         userName: presence.userName,
+         avatarUrl: presence.avatarUrl || '',
+       })
+-      pipeline.expire(KEYS.socketSession(socketId), SESSION_TTL)
++      socketTx.expire(KEYS.socketSession(socketId), SESSION_TTL)
+ 
+-      const results = await pipeline.exec()
++      const results = [...(await roomTx.exec()), ...(await socketTx.exec())]
+ 
+       const failed = results.some((result) => result instanceof Error)
+       if (failed) {
+@@ -271,29 +296,47 @@
+     }
+   }
+ 
+-  async removeUserFromRoom(room: RoomRef, socketId: string, retried = false): Promise<boolean> {
+-    if (!this.removeRoomScriptSha) {
++  async removeUserFromRoom(room: RoomRef, socketId: string): Promise<boolean> {
++    if (!this.removeFromRoomScriptSha || !this.removeFromSocketScriptSha) {
+       logger.error('removeUserFromRoom called before initialize()')
+       return false
+     }
+ 
+     try {
+-      const removed = await this.redis.evalSha(this.removeRoomScriptSha, {
+-        keys: [
+-          KEYS.socketRooms(socketId),
+-          KEYS.socketSession(socketId),
+-          KEYS.roomUsers(room),
+-          KEYS.roomMeta(room),
+-        ],
+-        arguments: [room.type, socketId, room.id],
+-      })
++      // Each half reloads its own script on NOSCRIPT, so a reload never repeats the other half.
++      let removed: unknown
++      let roomSha: string = this.removeFromRoomScriptSha
++      for (let attempt = 0; ; attempt++) {
++        try {
++          removed = await this.redis.evalSha(roomSha, {
++            keys: [KEYS.roomUsers(room), KEYS.roomMeta(room)],
++            arguments: [socketId],
++          })
++          break
++        } catch (error) {
++          if (!isNoScript(error) || attempt > 0) throw error
++          logger.warn('Lua script not found, reloading...')
++          roomSha = await this.redis.scriptLoad(REMOVE_FROM_ROOM_SCRIPT)
++          this.removeFromRoomScriptSha = roomSha
++        }
++      }
++      let socketSha: string = this.removeFromSocketScriptSha
++      for (let attempt = 0; ; attempt++) {
++        try {
++          await this.redis.evalSha(socketSha, {
++            keys: [KEYS.socketRooms(socketId), KEYS.socketSession(socketId)],
++            arguments: [room.type, room.id],
++          })
++          break
++        } catch (error) {
++          if (!isNoScript(error) || attempt > 0) throw error
++          logger.warn('Lua script not found, reloading...')
++          socketSha = await this.redis.scriptLoad(REMOVE_ROOM_FROM_SOCKET_SCRIPT)
++          this.removeFromSocketScriptSha = socketSha
++        }
++      }
+       return typeof removed === 'number' ? removed > 0 : Number(removed) > 0
+     } catch (error) {
+-      if ((error as Error).message?.includes('NOSCRIPT') && !retried) {
+-        logger.warn('Lua script not found, reloading...')
+-        this.removeRoomScriptSha = await this.redis.scriptLoad(REMOVE_ROOM_SCRIPT)
+-        return this.removeUserFromRoom(room, socketId, true)
+-      }
+       logger.error(`Failed to remove socket ${socketId} from room ${room.type}:${room.id}`, error)
+       return false
+     }
+@@ -392,35 +435,55 @@
+   async updateUserActivity(
+     room: RoomRef,
+     socketId: string,
+-    updates: Partial<Pick<UserPresence, 'cursor' | 'selection' | 'cell' | 'lastActivity'>>,
+-    retried = false
++    updates: Partial<Pick<UserPresence, 'cursor' | 'selection' | 'cell' | 'lastActivity'>>
+   ): Promise<void> {
+-    if (!this.updateActivityScriptSha) {
++    if (!this.updateActivityScriptSha || !this.refreshSocketScriptSha) {
+       logger.error('updateUserActivity called before initialize()')
+       return
+     }
+ 
+     try {
+-      await this.redis.evalSha(this.updateActivityScriptSha, {
+-        keys: [KEYS.roomUsers(room), KEYS.socketRooms(socketId), KEYS.socketSession(socketId)],
+-        arguments: [
+-          socketId,
+-          serializePresenceField('cursor', updates.cursor, socketId),
+-          serializePresenceField('selection', updates.selection, socketId),
+-          (updates.lastActivity ?? Date.now()).toString(),
+-          SOCKET_ROOMS_TTL.toString(),
+-          SESSION_TTL.toString(),
+-          // Trailing arg (ARGV[7]) so existing indices stay stable. `null` (cleared
+-          // selection) serializes to 'null'; `undefined` (no cell change) to '' (skip).
+-          serializePresenceField('cell', updates.cell, socketId),
+-        ],
+-      })
+-    } catch (error) {
+-      if ((error as Error).message?.includes('NOSCRIPT') && !retried) {
+-        logger.warn('Lua script not found, reloading...')
+-        this.updateActivityScriptSha = await this.redis.scriptLoad(UPDATE_ACTIVITY_SCRIPT)
+-        return this.updateUserActivity(room, socketId, updates, true)
++      let activitySha: string = this.updateActivityScriptSha
++      let updated: unknown
++      for (let attempt = 0; ; attempt++) {
++        try {
++          updated = await this.redis.evalSha(activitySha, {
++            keys: [KEYS.roomUsers(room)],
++            arguments: [
++              socketId,
++              serializePresenceField('cursor', updates.cursor, socketId),
++              serializePresenceField('selection', updates.selection, socketId),
++              (updates.lastActivity ?? Date.now()).toString(),
++              // Trailing arg (ARGV[5]). `null` (cleared selection) serializes to 'null';
++              // `undefined` (no cell change) to '' (skip).
++              serializePresenceField('cell', updates.cell, socketId),
++            ],
++          })
++          break
++        } catch (error) {
++          if (!isNoScript(error) || attempt > 0) throw error
++          logger.warn('Lua script not found, reloading...')
++          activitySha = await this.redis.scriptLoad(UPDATE_ACTIVITY_SCRIPT)
++          this.updateActivityScriptSha = activitySha
++        }
+       }
++      if (Number(updated) !== 1) return
++      let refreshSha: string = this.refreshSocketScriptSha
++      for (let attempt = 0; ; attempt++) {
++        try {
++          await this.redis.evalSha(refreshSha, {
++            keys: [KEYS.socketRooms(socketId), KEYS.socketSession(socketId)],
++            arguments: [SOCKET_ROOMS_TTL.toString(), SESSION_TTL.toString()],
++          })
++          break
++        } catch (error) {
++          if (!isNoScript(error) || attempt > 0) throw error
++          logger.warn('Lua script not found, reloading...')
++          refreshSha = await this.redis.scriptLoad(REFRESH_SOCKET_TTL_SCRIPT)
++          this.refreshSocketScriptSha = refreshSha
++        }
++      }
++    } catch (error) {
+       logger.error(`Failed to update user activity: ${socketId}`, error)
+     }
+   }
+diff -ru a/apps/sim/lib/billing/core/usage-segment-cache.ts b/apps/sim/lib/billing/core/usage-segment-cache.ts
+--- a/apps/sim/lib/billing/core/usage-segment-cache.ts	2026-11-16 14:36:47
++++ b/apps/sim/lib/billing/core/usage-segment-cache.ts	2026-11-16 14:36:57
+@@ -51,7 +51,8 @@
+   const redis = getRedisClient()
+   if (!redis) return keys.map((key) => localSegments.get(key) ?? null)
+   try {
+-    return await redis.mget(...keys)
++    // One GET per key: the keys of a window do not share a hash slot on Redis Cluster.
++    return await Promise.all(keys.map((key) => redis.get(key)))
+   } catch (error) {
+     logger.warn('Usage segment cache read failed; reading the ledger', {
+       error: getErrorMessage(error),
+@@ -85,9 +86,9 @@
+       localSegments.set(key, value, { ttl: jittered(ttlMs) })
+     return
+   }
+-  const pipeline = redis.pipeline()
+-  for (const { key, value, ttlMs } of entries) pipeline.set(key, value, 'PX', jittered(ttlMs))
+-  pipeline.exec().catch((error: unknown) => {
++  Promise.all(
++    entries.map(({ key, value, ttlMs }) => redis.set(key, value, 'PX', jittered(ttlMs)))
++  ).catch((error: unknown) => {
+     logger.warn('Usage segment cache write failed', { error: getErrorMessage(error) })
+   })
+ }
+diff -ru a/apps/sim/lib/cli-auth/approval-store.ts b/apps/sim/lib/cli-auth/approval-store.ts
+--- a/apps/sim/lib/cli-auth/approval-store.ts	2026-11-16 14:36:47
++++ b/apps/sim/lib/cli-auth/approval-store.ts	2026-11-16 14:36:57
+@@ -76,12 +76,12 @@
+  * never stored in the clear.
+  */
+ function approvalKey(requestId: string): string {
+-  return `cli:auth:req:${sha256Hex(requestId)}`
++  return `cli:auth:{${sha256Hex(requestId)}}:req`
+ }
+ 
+ /** Guards the mint step so two concurrent valid polls can't both mint a key. */
+ function mintLockKey(requestId: string): string {
+-  return `cli:auth:mint:${sha256Hex(requestId)}`
++  return `cli:auth:{${sha256Hex(requestId)}}:mint`
+ }
+ 
+ /** Records a signed-in user's approval. Overwrites any prior approval for the same request. */
+diff -ru a/apps/sim/lib/core/outbox/retention.ts b/apps/sim/lib/core/outbox/retention.ts
+--- a/apps/sim/lib/core/outbox/retention.ts	2026-11-16 14:36:46
++++ b/apps/sim/lib/core/outbox/retention.ts	2026-11-16 14:36:57
+@@ -98,7 +98,9 @@
+   const redis = getRedisClient()
+   if (!redis) return null
+   try {
+-    const stored = await redis.mget(...PRUNABLE_OUTBOX_EVENT_TYPES.map(pruneCursorKey))
++    const stored = await Promise.all(
++      PRUNABLE_OUTBOX_EVENT_TYPES.map((eventType) => redis.get(pruneCursorKey(eventType)))
++    )
+     const cursors = new Map<string, PruneCursor>()
+     PRUNABLE_OUTBOX_EVENT_TYPES.forEach((eventType, index) => {
+       const cursor = parsePruneCursor(stored[index])
+@@ -130,20 +132,18 @@
+   const redis = getRedisClient()
+   if (!redis || next.size === 0) return
+   try {
+-    const pipeline = redis.pipeline()
+-    for (const [eventType, cursor] of next) {
+-      if (cursor) {
+-        pipeline.set(
+-          pruneCursorKey(eventType),
+-          JSON.stringify(cursor),
+-          'EX',
+-          OUTBOX_PRUNE_PASS_MAX_MS / 1000
+-        )
+-      } else {
+-        pipeline.del(pruneCursorKey(eventType))
+-      }
+-    }
+-    await pipeline.exec()
++    await Promise.all(
++      [...next].map(([eventType, cursor]) =>
++        cursor
++          ? redis.set(
++              pruneCursorKey(eventType),
++              JSON.stringify(cursor),
++              'EX',
++              OUTBOX_PRUNE_PASS_MAX_MS / 1000
++            )
++          : redis.del(pruneCursorKey(eventType))
++      )
++    )
+   } catch (error) {
+     logger.warn('Failed to save outbox prune cursors', { error: getErrorMessage(error) })
+   }
+diff -ru a/apps/sim/lib/core/rate-limiter/hosted-key/queue.ts b/apps/sim/lib/core/rate-limiter/hosted-key/queue.ts
+--- a/apps/sim/lib/core/rate-limiter/hosted-key/queue.ts	2026-11-16 14:36:47
++++ b/apps/sim/lib/core/rate-limiter/hosted-key/queue.ts	2026-11-16 14:36:57
+@@ -22,10 +22,10 @@
+ const QUEUE_LIST_TTL_SECONDS = 600
+ 
+ const queueListKey = (provider: string, billingActorId: string): string =>
+-  `hosted-queue:${provider}:${billingActorId}`
++  `hosted-queue:{${provider}:${billingActorId}}`
+ 
+ const heartbeatKey = (provider: string, billingActorId: string, ticketId: string): string =>
+-  `hosted-queue-tkt:${provider}:${billingActorId}:${ticketId}`
++  `hosted-queue-tkt:{${provider}:${billingActorId}}:${ticketId}`
+ 
+ /**
+  * Atomically reap any dead head, then return our ticket's status. Combines what
+@@ -33,6 +33,8 @@
+  * because callers poll this every ~200ms while waiting in the queue.
+  *
+  * `KEYS[1]` = queue list key. `ARGV[1]` = heartbeat key prefix. `ARGV[2]` = our ticketId.
++ * The prefix carries the same `{provider:actor}` hash tag as the list, so the heartbeat keys the
++ * script builds live in the list's slot on Redis Cluster.
+  *
+  * Reaping is bounded: at most one dead head is removed per call. If multiple dead
+  * tickets pile up at the head, subsequent polls will clean them one by one. This
+@@ -132,7 +134,7 @@
+     }
+ 
+     const listKey = queueListKey(provider, billingActorId)
+-    const hbPrefix = `hosted-queue-tkt:${provider}:${billingActorId}:`
++    const hbPrefix = `hosted-queue-tkt:{${provider}:${billingActorId}}:`
+ 
+     try {
+       const result = (await redis.eval(CHECK_HEAD_SCRIPT, 1, listKey, hbPrefix, ticketId)) as
+diff -ru a/apps/sim/lib/mothership/request/session/abort.ts b/apps/sim/lib/mothership/request/session/abort.ts
+--- a/apps/sim/lib/mothership/request/session/abort.ts	2026-11-16 14:36:47
++++ b/apps/sim/lib/mothership/request/session/abort.ts	2026-11-16 14:37:02
+@@ -169,7 +169,7 @@
+ 
+   try {
+     const keys = chatIds.map(chatStreamLockKey)
+-    const values = await redis.mget(keys)
++    const values = await Promise.all(keys.map((key) => redis.get(key)))
+     const redisOwnersByChatId = new Map<string, string>()
+     for (let i = 0; i < chatIds.length; i++) {
+       const owner = values[i]

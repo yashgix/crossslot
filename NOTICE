@@ -1,0 +1,8 @@
+crossslot
+
+Sim's source is not included in this repository. The commands fetch the files they read at run time from
+https://github.com/simstudioai/sim at commit edf5f0a47da8147466cb893c0a1666058331d42e and check them against
+data/MANIFEST.sha256. Sim is licensed under the Apache License 2.0 (see LICENSE at that commit).
+
+patch/crossslot.patch is a modification of files from Sim, so Sim's LICENSE and NOTICE are kept in patch/.
+The rest of this repository is MIT licensed (see LICENSE).

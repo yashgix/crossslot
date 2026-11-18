@@ -1,0 +1,87 @@
+##### run 1 (2026-11-17 19:06:30 EST) npm run repro:realtime-rooms
+== realtime rooms: RedisRoomManager (node-redis 5.10.0)
+Sim edf5f0a47da8147466cb893c0a1666058331d42e
+  redis-manager.ts:243 addUserToRoom (MULTI), :281 removeUserFromRoom (EVALSHA, 4 keys),
+    :385 deleteRoom (DEL, 2 keys), :404 updateUserActivity (EVALSHA, 3 keys)
+  Sim's real module. Stubbed, none touching Redis: @sim/logger (prints error lines),
+    @sim/realtime-protocol/rooms and @/rooms/presence-visibility (broadcast helpers, never called)
+  standalone: the manager builds its own client with createClient({ url }) as Sim does.
+  cluster: the same manager, its private `redis` field set to createCluster() (see README).
+  keys, hash slots (CLUSTER KEYSLOT) and the primary that owns each slot:
+    slot  4318  127.0.0.1:7001  workflow:wf_4d7e91:users
+    slot  4548  127.0.0.1:7001  workflow:wf_4d7e91:meta
+    slot  3140  127.0.0.1:7001  socket:sock_Q8nv2:rooms
+    slot  6864  127.0.0.1:7002  socket:sock_Q8nv2:session
+PASS  standalone addUserToRoom (:243): returned undefined, no error logged
+PASS  standalone updateUserActivity (:404): returned undefined, no error logged
+PASS  standalone removeUserFromRoom (:281): returned true, no error logged
+PASS  standalone deleteRoom (:385): returned undefined, no error logged
+    [sim logger.error] RedisRoomManager: Failed to add user to room: sock_Q8nv2 -> workflow:wf_4d7e91 Error: MOVED 6864 127.0.0.1:7002
+PASS  cluster addUserToRoom (:243): Error: MOVED 6864 127.0.0.1:7002
+    [sim logger.error] RedisRoomManager: Failed to update user activity: sock_Q8nv2 Error: CROSSSLOT Keys in request don't hash to the same slot
+PASS  cluster updateUserActivity (:404): returned undefined, logged RedisRoomManager: Failed to update user activity: sock_Q8nv2 Error: CROSSSLOT Keys in request don't hash to the same slot
+    [sim logger.error] RedisRoomManager: Failed to remove socket sock_Q8nv2 from room workflow:wf_4d7e91 Error: CROSSSLOT Keys in request don't hash to the same slot
+PASS  cluster removeUserFromRoom (:281): returned false, logged RedisRoomManager: Failed to remove socket sock_Q8nv2 from room workflow:wf_4d7e91 Error: CROSSSLOT Keys in request don't hash to the same slot
+    [sim logger.error] RedisRoomManager: Failed to delete room workflow:wf_4d7e91: Error: CROSSSLOT Keys in request don't hash to the same slot
+PASS  cluster deleteRoom (:385): Error: CROSSSLOT Keys in request don't hash to the same slot
+    [sim logger.warn] RedisRoomManager: Redis client connection closed
+exit 0
+
+##### run 2 (2026-11-17 19:06:31 EST) npm run repro:realtime-rooms
+== realtime rooms: RedisRoomManager (node-redis 5.10.0)
+Sim edf5f0a47da8147466cb893c0a1666058331d42e
+  redis-manager.ts:243 addUserToRoom (MULTI), :281 removeUserFromRoom (EVALSHA, 4 keys),
+    :385 deleteRoom (DEL, 2 keys), :404 updateUserActivity (EVALSHA, 3 keys)
+  Sim's real module. Stubbed, none touching Redis: @sim/logger (prints error lines),
+    @sim/realtime-protocol/rooms and @/rooms/presence-visibility (broadcast helpers, never called)
+  standalone: the manager builds its own client with createClient({ url }) as Sim does.
+  cluster: the same manager, its private `redis` field set to createCluster() (see README).
+  keys, hash slots (CLUSTER KEYSLOT) and the primary that owns each slot:
+    slot  4318  127.0.0.1:7001  workflow:wf_4d7e91:users
+    slot  4548  127.0.0.1:7001  workflow:wf_4d7e91:meta
+    slot  3140  127.0.0.1:7001  socket:sock_Q8nv2:rooms
+    slot  6864  127.0.0.1:7002  socket:sock_Q8nv2:session
+PASS  standalone addUserToRoom (:243): returned undefined, no error logged
+PASS  standalone updateUserActivity (:404): returned undefined, no error logged
+PASS  standalone removeUserFromRoom (:281): returned true, no error logged
+PASS  standalone deleteRoom (:385): returned undefined, no error logged
+    [sim logger.error] RedisRoomManager: Failed to add user to room: sock_Q8nv2 -> workflow:wf_4d7e91 Error: MOVED 6864 127.0.0.1:7002
+PASS  cluster addUserToRoom (:243): Error: MOVED 6864 127.0.0.1:7002
+    [sim logger.error] RedisRoomManager: Failed to update user activity: sock_Q8nv2 Error: CROSSSLOT Keys in request don't hash to the same slot
+PASS  cluster updateUserActivity (:404): returned undefined, logged RedisRoomManager: Failed to update user activity: sock_Q8nv2 Error: CROSSSLOT Keys in request don't hash to the same slot
+    [sim logger.error] RedisRoomManager: Failed to remove socket sock_Q8nv2 from room workflow:wf_4d7e91 Error: CROSSSLOT Keys in request don't hash to the same slot
+PASS  cluster removeUserFromRoom (:281): returned false, logged RedisRoomManager: Failed to remove socket sock_Q8nv2 from room workflow:wf_4d7e91 Error: CROSSSLOT Keys in request don't hash to the same slot
+    [sim logger.error] RedisRoomManager: Failed to delete room workflow:wf_4d7e91: Error: CROSSSLOT Keys in request don't hash to the same slot
+PASS  cluster deleteRoom (:385): Error: CROSSSLOT Keys in request don't hash to the same slot
+    [sim logger.warn] RedisRoomManager: Redis client connection closed
+exit 0
+
+##### run 3 (2026-11-17 19:06:31 EST) npm run repro:realtime-rooms
+== realtime rooms: RedisRoomManager (node-redis 5.10.0)
+Sim edf5f0a47da8147466cb893c0a1666058331d42e
+  redis-manager.ts:243 addUserToRoom (MULTI), :281 removeUserFromRoom (EVALSHA, 4 keys),
+    :385 deleteRoom (DEL, 2 keys), :404 updateUserActivity (EVALSHA, 3 keys)
+  Sim's real module. Stubbed, none touching Redis: @sim/logger (prints error lines),
+    @sim/realtime-protocol/rooms and @/rooms/presence-visibility (broadcast helpers, never called)
+  standalone: the manager builds its own client with createClient({ url }) as Sim does.
+  cluster: the same manager, its private `redis` field set to createCluster() (see README).
+  keys, hash slots (CLUSTER KEYSLOT) and the primary that owns each slot:
+    slot  4318  127.0.0.1:7001  workflow:wf_4d7e91:users
+    slot  4548  127.0.0.1:7001  workflow:wf_4d7e91:meta
+    slot  3140  127.0.0.1:7001  socket:sock_Q8nv2:rooms
+    slot  6864  127.0.0.1:7002  socket:sock_Q8nv2:session
+PASS  standalone addUserToRoom (:243): returned undefined, no error logged
+PASS  standalone updateUserActivity (:404): returned undefined, no error logged
+PASS  standalone removeUserFromRoom (:281): returned true, no error logged
+PASS  standalone deleteRoom (:385): returned undefined, no error logged
+    [sim logger.error] RedisRoomManager: Failed to add user to room: sock_Q8nv2 -> workflow:wf_4d7e91 Error: MOVED 6864 127.0.0.1:7002
+PASS  cluster addUserToRoom (:243): Error: MOVED 6864 127.0.0.1:7002
+    [sim logger.error] RedisRoomManager: Failed to update user activity: sock_Q8nv2 Error: CROSSSLOT Keys in request don't hash to the same slot
+PASS  cluster updateUserActivity (:404): returned undefined, logged RedisRoomManager: Failed to update user activity: sock_Q8nv2 Error: CROSSSLOT Keys in request don't hash to the same slot
+    [sim logger.error] RedisRoomManager: Failed to remove socket sock_Q8nv2 from room workflow:wf_4d7e91 Error: CROSSSLOT Keys in request don't hash to the same slot
+PASS  cluster removeUserFromRoom (:281): returned false, logged RedisRoomManager: Failed to remove socket sock_Q8nv2 from room workflow:wf_4d7e91 Error: CROSSSLOT Keys in request don't hash to the same slot
+    [sim logger.error] RedisRoomManager: Failed to delete room workflow:wf_4d7e91: Error: CROSSSLOT Keys in request don't hash to the same slot
+PASS  cluster deleteRoom (:385): Error: CROSSSLOT Keys in request don't hash to the same slot
+    [sim logger.warn] RedisRoomManager: Redis client connection closed
+exit 0
+
